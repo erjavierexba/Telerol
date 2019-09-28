@@ -1,0 +1,69 @@
+
+<html>
+{% include 'Header.html' %}
+<head>
+    <title>Creación de grupo</title>
+	<style>
+* {
+  box-sizing: border-box;
+}
+
+.column {
+  float: left;
+  width: 50%;
+  padding: 10px;
+  height: 300px;
+}
+
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+</style>
+
+</head>
+    <body>
+
+	
+<h1>Contactos:</h1>
+<form method = "post">
+ <div class="row">
+
+  <div class="column">
+	<table name= "Contacts" border="1">
+<TR>
+   <TD>ID		</TD>
+   <TD>FNAME		</TD>
+   <TD>LNAME		</TD>
+   <TD>TELF		</TD>
+</TR>
+{%for i in range(0, lenUsers)%}
+
+ <TR>
+   <TD class="c1">  {{user[i][0]}}		</TD>
+   <TD class="c2">  {{user[i][1]}}		</TD>
+   <TD class="c3">  {{user[i][2 ]}}		</TD>
+   <TD class="c4">  {{user[i][3]}}		</TD>
+   <TD class="c5"><input type="checkbox" name= {{i}}></TD>
+</TR>
+
+{%endfor%} 
+</table> 
+	</div>
+  <div class="column">  
+    
+         <p>Nombre del grupo:</p>
+         <p><input type = "text" name = "gname" /></p>
+         <p><input type = "submit" value = "Crear grupo" /></p>
+      <input type="submit" name= "desc" value="Desconectar">
+      <input type = "text" name = "telf"  />
+      <input type="submit" name= "conn" value="Connect">
+
+
+
+  
+</div>
+</form>
+    </body>
+</html>

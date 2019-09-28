@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+     <meta charset="UTF-8">
+<style>
+body{
+ background-color:#0ca2ed;
+}
+.center {
+  margin: auto;
+  width: 60%;
+  background-color:#0ca2ed;
+  border: 3px solid lightBlue;
+  border-radius: 5px;
+  padding: 10px;
+  margin-top: 50px;
+  margin-bottom: 20px;
+}
+.login {
+  width: 40%;
+  margin: auto;
+  margin-top: 80px;
+  background-color:lightBlue;
+  padding: 10px;
+}
+p {
+color: White;
+text-align: center;
+}
+h2 {
+color: White;
+text-align: center;
+}
+.telf{
+display:inline-block;
+}
+.codigo{
+display:inline-block;
+}
+</style>
+
+</head>
+<body>
+
+
+<div class="center">
+  <h1 style="color: White; text-align: center;"><b>Telerol</b></h1>
+</div>
+<div class="login">
+  <h2><b>Login</b></h2>
+     <form method="post">
+         {% if part == "2" %}
+         <p>Ahora en Telegram le debería haber llegado un mensaje con un código para acceder a Telerol</p>
+         <div class="Row"></div>
+         <label class="codigo" ><p style="margin: 20px; text-align: left;" >Introduzca el código:</p></label>
+         <input type="text"   name="codigo" placeholder="Añada el código" style="align:left;">
+          <input type="hidden" name="part" value = "5">
+         <input type="submit" name= "login" value="login">
+         {% else %}
+         <label class="telf" ><p style="margin: 10px;" >Introduzca su teléfono:</p></label>
+         <input type="text" class="telf" name="telf" placeholder="Añada el prefijo nacional" style="align:center;">
+         <input type="hidden" name="part" value = "2">
+         <input type="submit" name= "login" value="login">
+         {% endif %}
+    </form>
+</div>
+
+
+</body>
+</html>

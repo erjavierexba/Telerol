@@ -8,6 +8,7 @@ import asyncio
 import json
 import urllib.parse
 import ast
+from dice import diceThrow
 from os import listdir
 app = Quart(__name__)
 mClient = get_mongoDoc()
@@ -178,19 +179,26 @@ async def mainPage():
         await tClient.connect()
 
 
-        text = ""
-        entity = ""
-        i = 0
+
         async with timeout(app.config['BODY_TIMEOUT']):
             async for data in request.body:
                 data = data.decode('utf-8')
                 data = data.replace("\n", "LD7ko0MdqFUQFjVGw2tF")
                 data = ast.literal_eval(data)
-                data['data']=data['data'].replace("LD7ko0MdqFUQFjVGw2tF", "\n")[:-1]
+                data['data']=data['data'].replace("LD7ko0MdqFUQFjVGw2tF", "\n")
+                evals = data['data'].find("/d(")
+                while evals >= 0:
+                    startPos =data['data'].find("/d(")
+                    endPos = data['data'].find(")",startPos)
+                    dice = data['data'][startPos+3:endPos]
+                    result = diceThrow(dice)
+                    data['data'] = data['data'][:startPos]+"(["+dice+"] = "+str(result[0])+")"+ data['data'][endPos+1:]
+                    evals = data['data'][endPos+1:].find("/d(")
+
         await tClient.send_message("me", data['data'])
         return {}
 def main_web():
-    app.run()
+    app.run( )
 '''
     test = os.listdir()
     for item in test:

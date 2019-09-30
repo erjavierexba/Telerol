@@ -9,9 +9,28 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script>
 $(document).ready(function(){
+var selected ='holi';
+  $(".chat").mouseenter(function(e){
+
+    $('#'+ e.target.getAttribute('id')).css({"background-color": "rgba(0,0,0,0.2)", "cursor": "pointer"});
+  });
+  $(".chat").mouseleave(function(e){
+     $('#'+ e.target.getAttribute('id')).css({"background-color": "rgba(255,255,255,1)"});
+  });
+  $(".chat").click(function(e){
+     selected = $('#'+ e.target.getAttribute('id')).find($('.code'));
+     $('#'+ e.target.getAttribute('id')).css({"background-color": "rgba(125,122,122,0.5)"});
+     alert(selected.text())
+     $.getJSON('/c/'+selected.text(), {
+         chat: selected.text()
+      }, function(data) {
+        alert(data[5]);
+      });
+  });
 
  $(".send-message").mouseenter(function(){
     $(".send-message").css({"background-color": "rgba(0,0,0,0.2)", "cursor": "pointer"});
+
   });
  $(".send-message").mouseleave(function(){
     $(".send-message").css({"background-color": "rgba(255,255,255,1)"});
@@ -23,7 +42,7 @@ $.ajax({
   type : 'POST',
   url : '/',
   contentType: 'application/json;charset=UTF-8',
-  data: '{ "data": \'' + inp + '\', "chan": \'' + '213452365436' + '\'}',
+  data: '{ "data": \'' + inp + '\', "chan": \'' + 'selected.text()' + '\'}',
    dataType: "json",
 });
     clear = $(".input-text").val().replace("\n","");
@@ -110,13 +129,13 @@ $(".input-text").keyup(function(e){
 </div>
 <div>
 <div class="column" >
+    <div class="info"></div>
      <div class="chats" style="height:93.2%;">
          <div class="row">
-             <div class="chat" onclick="" style="margin: 2px; background-color: white; overflow: auto; border: 1px solid black; border-radius: 3px;  width: 98%; float:left;">
+             <div class="chat" id ="c1" style="margin: 2px; background-color: white; overflow: auto; border: 1px solid black; border-radius: 3px;  width: 98%; float:left;">
+                  <p class ="code" style="  display:none;">me</p>
                  <div class="photo-chat"  style="align: center;" ><img src="https://i.imgur.com/V3ncxc5.png" width="45px" height="40px"style="margin: 8px; float:left;"></div>
-                 <div class="title-chat" style="text-align: center;margin-top: 0px;"> <p maxlength="20" style="float:left; font-family: 'Roboto', sans-serif; font-size:18px;"
-                 >Un big big big big title</p></div>
-
+                 <div class="title-chat" style="text-align: center;margin-top: 0px;"> <p maxlength="20" style="float:left; font-family: 'Roboto', sans-serif; font-size:18px;">Un big big big big title</p></div>
              </div>
 
 
@@ -126,7 +145,7 @@ $(".input-text").keyup(function(e){
     </div>
 </div>
 <div class="column1">
-    <div class="chat"  style="height:93.2%; overflow:hidden">
+    <div class="chat-text"  id= "chat-text" style="height:93.2%; overflow:hidden">
         <div class="messages" style= "border: 1px solid black; border-radius: 6px;margin: 8px; background-color: white; height:83%;overflow:scroll;scroll-behavior: auto;"></div>
         <div class="input-chat" style=" margin: 8px; border: 1px solid black; border-radius: 6px;background-color: white; height:auto;overflow:scroll;scroll-behavior: auto;">
             <img src="https://i.imgur.com/V3ncxc5.png" width="78" height="70" style="margin: 8px; float:left;">

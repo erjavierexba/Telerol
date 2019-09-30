@@ -3,7 +3,7 @@ from imageF import *
 from telethon import *
 from telethon.tl.types import PeerUser, PeerChat, PeerChannel
 from async_timeout import timeout
-from quart import Quart, request, render_template, redirect, url_for
+from quart import Quart, request, render_template, redirect, url_for, jsonify
 import asyncio
 import json
 import urllib.parse
@@ -141,6 +141,23 @@ async def clientAndUsers():
     users = await getUsers(client[0])
     return client, users
 
+@app.route("/c/<chat>")
+async def chatPage(chat):
+    global tClient
+    api_id = 94575
+    api_hash = 'a3406de8d171bb422bb6ddf3bbd800e2'
+    tClient = TelegramClient("n", api_id, api_hash)
+    await tClient.connect()
+    print(chat)
+    entity = await tClient.get_entity(chat)
+    msg = await tClient.get_messages(entity,20)
+    result = {}
+    i = 0
+    for m in msg:
+        i =  i+1
+        result[i]= m.message
+    print(result)
+    return jsonify(result)
 
 @app.route("/", methods=["GET", "POST"])
 async def mainPage():
@@ -173,6 +190,7 @@ async def mainPage():
     if request.method == 'GET':
         return await render_template('main.html' )
     else:
+        global tClient
         api_id = 94575
         api_hash = 'a3406de8d171bb422bb6ddf3bbd800e2'
         tClient = TelegramClient("n", api_id, api_hash)
@@ -195,7 +213,7 @@ async def mainPage():
                     data['data'] = data['data'][:startPos]+"(["+dice+"] = "+str(result[0])+")"+ data['data'][endPos+1:]
                     evals = data['data'][endPos+1:].find("/d(")
 
-        await tClient.send_message("me", data['data'])
+                await tClient.send_message("me", data['data'])
         return {}
 def main_web():
     app.run( )

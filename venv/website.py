@@ -151,12 +151,12 @@ async def chatPage(chat):
     print(chat)
     entity = await tClient.get_entity(chat)
     msg = await tClient.get_messages(entity,20)
+    print(str(msg))
     result = {}
     i = 0
     for m in msg:
         i =  i+1
         result[i]= m.message
-    print(result)
     return jsonify(result)
 
 @app.route("/", methods=["GET", "POST"])

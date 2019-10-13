@@ -18,13 +18,13 @@ var selected ='holi';
      $('#'+ e.target.getAttribute('id')).css({"background-color": "rgba(255,255,255,1)"});
   });
   $(".chat").click(function(e){
-     selected = $('#'+ e.target.getAttribute('id')).find($('.code'));
+     alert($('#'+ e.target.getAttribute('id')).attr('name'));
      $('#'+ e.target.getAttribute('id')).css({"background-color": "rgba(125,122,122,0.5)"});
-     alert(selected.text())
+     alert(selected.text());
      $.getJSON('/c/'+selected.text(), {
          chat: selected.text()
       }, function(data) {
-        alert(data[5]);
+        alert(data[4]);
       });
   });
 
@@ -132,8 +132,8 @@ $(".input-text").keyup(function(e){
     <div class="info"></div>
      <div class="chats" style="height:93.2%;">
          <div class="row">
-             <div class="chat" id ="c1" style="margin: 2px; background-color: white; overflow: auto; border: 1px solid black; border-radius: 3px;  width: 98%; float:left;">
-                  <p class ="code" style="  display:none;">me</p>
+             <div class="chat" id ="c1" name="me" style="margin: 2px; background-color: white; overflow: auto; border: 1px solid black; border-radius: 3px;  width: 98%; float:left;">
+
                  <div class="photo-chat"  style="align: center;" ><img src="https://i.imgur.com/V3ncxc5.png" width="45px" height="40px"style="margin: 8px; float:left;"></div>
                  <div class="title-chat" style="text-align: center;margin-top: 0px;"> <p maxlength="20" style="float:left; font-family: 'Roboto', sans-serif; font-size:18px;">Un big big big big title</p></div>
              </div>
@@ -156,6 +156,10 @@ $(".input-text").keyup(function(e){
 </div>
 <div class="column2">
      <div class="images"  style="height:93.2%;">
+         <div class="imageP" style="width: 80%; height:50%; margin:2%; background-color:white; float:left;"></div>
+         <div class="imageButtons" style="width: 10%; height:50%; margin:2%; background-color:black;float:left;">
+             <div class="buttonImg" style="width:fill; height:width; background-color:white;float:top;" ></div>
+         </div>
     </div>
 </div>
     </div>

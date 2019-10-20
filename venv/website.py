@@ -141,9 +141,16 @@ async def clientAndUsers():
     users = await getUsers(client[0])
     return client, users
 
+
+def transformColor(color):
+    return "rgba("+str(color[0])+","+str(color[1])+","+str(color[2])+","+str(color[3])+")"
+
+
 @app.route("/c/<chat>")
 async def chatPage(chat):
     global tClient
+    if chat == "null":
+        return jsonify({1: "Algo salió mal en la carga, reintentelo de nuevo."})
     api_id = 94575
     api_hash = 'a3406de8d171bb422bb6ddf3bbd800e2'
     tClient = TelegramClient("n", api_id, api_hash)
@@ -151,12 +158,20 @@ async def chatPage(chat):
     print(chat)
     entity = await tClient.get_entity(chat)
     msg = await tClient.get_messages(entity,20)
-    print(str(msg))
     result = {}
     i = 0
+    meu = await tClient.get_me()
     for m in msg:
-        i =  i+1
-        result[i]= m.message
+        i = i+1
+        data = mClient.find_one({'idChat':str(entity.id)})
+        color = transformColor(data['idToColor'][str(m.from_id)][1])
+        nickname = data['idToNickname'][str(m.from_id)]
+        photo = data['idToPhoto'][str(m.from_id)]
+        itsme = 0
+        if meu.id == m.from_id:
+            itsme = 1
+
+        result[i]= [photo, color, nickname, m.message, itsme]
     return jsonify(result)
 
 @app.route("/", methods=["GET", "POST"])
@@ -216,7 +231,7 @@ async def mainPage():
                 await tClient.send_message("me", data['data'])
         return {}
 def main_web():
-    app.run( )
+    app.run()
 '''
     test = os.listdir()
     for item in test:

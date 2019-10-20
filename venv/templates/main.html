@@ -21,12 +21,11 @@ $(document).ready(function(){
   $(".chat").click(function(e){
 
 
-     setTimeout(selected = e.target.getAttribute('id'), 1000);
-     alert(selected);
-     $.getJSON( '/c/'+selected, function() {
-  console.log( "selected" );
-})
+     setTimeout(selected = e.target.getAttribute('id'));
+     $.getJSON( '/c/'+selected, function(result){
+    $.each(result, function(i, field){alert(field);});
   });
+   });
 
  $(".send-message").mouseenter(function(){
     $(".send-message").css({"background-color": "rgba(0,0,0,0.2)", "cursor": "pointer"});

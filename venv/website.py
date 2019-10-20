@@ -7,6 +7,7 @@ from quart import Quart, request, render_template, redirect, url_for, jsonify
 import asyncio
 import json
 import urllib.parse
+import hypercorn.asyncio
 import ast
 from dice import diceThrow
 from os import listdir
@@ -151,11 +152,6 @@ async def chatPage(chat):
     global tClient
     if chat == "null":
         return jsonify({1: "Algo salió mal en la carga, reintentelo de nuevo."})
-    api_id = 94575
-    api_hash = 'a3406de8d171bb422bb6ddf3bbd800e2'
-    tClient = TelegramClient("n", api_id, api_hash)
-    await tClient.connect()
-    print(chat)
     entity = await tClient.get_entity(chat)
     msg = await tClient.get_messages(entity,20)
     result = {}
@@ -171,7 +167,8 @@ async def chatPage(chat):
         if meu.id == m.from_id:
             itsme = 1
 
-        result[i]= [photo, color, nickname, m.message, itsme]
+        result[i]= str([photo, color, nickname, m.message, itsme])
+        print(result[i])
     return jsonify(result)
 
 @app.route("/", methods=["GET", "POST"])
@@ -206,13 +203,6 @@ async def mainPage():
         return await render_template('main.html' )
     else:
         global tClient
-        api_id = 94575
-        api_hash = 'a3406de8d171bb422bb6ddf3bbd800e2'
-        tClient = TelegramClient("n", api_id, api_hash)
-        await tClient.connect()
-
-
-
         async with timeout(app.config['BODY_TIMEOUT']):
             async for data in request.body:
                 data = data.decode('utf-8')
@@ -230,8 +220,20 @@ async def mainPage():
 
                 await tClient.send_message("me", data['data'])
         return {}
-def main_web():
-    app.run()
+async def main_web():
+
+    await hypercorn.asyncio.serve(app, hypercorn.Config())
+
+
+def start():
+    SESSION = os.environ.get('TG_SESSION', 'quart')
+    global tClient
+    tClient = TelegramClient(SESSION, 94575, 'a3406de8d171bb422bb6ddf3bbd800e2')
+    # Telethon client
+    tClient.parse_mode = 'html'  # <- Render things nicely
+    tClient.connect()
+    phone = None
+    tClient.loop.run_until_complete(main_web())
 '''
     test = os.listdir()
     for item in test:

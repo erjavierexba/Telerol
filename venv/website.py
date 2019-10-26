@@ -158,7 +158,7 @@ async def chatPage(chat):
     i = 0
     meu = await tClient.get_me()
     for m in msg:
-        i = i+1
+
         data = mClient.find_one({'idChat':str(entity.id)})
         color = transformColor(data['idToColor'][str(m.from_id)][1])
         nickname = data['idToNickname'][str(m.from_id)]
@@ -166,9 +166,10 @@ async def chatPage(chat):
         itsme = 0
         if meu.id == m.from_id:
             itsme = 1
-
-        result[i]= str([photo, color, nickname, m.message, itsme])
-        print(result[i])
+        if m.message != None:
+            i = i + 1
+            result[i]= [photo, color, nickname, m.message, itsme]
+            print(result[i])
     return jsonify(result)
 
 @app.route("/", methods=["GET", "POST"])

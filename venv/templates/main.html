@@ -9,6 +9,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script>
     var selected ='holi';
+    var chatInfo = '';
 $(document).ready(function(){
 
   $(".chat").mouseenter(function(e){
@@ -23,7 +24,9 @@ $(document).ready(function(){
 
      setTimeout(selected = e.target.getAttribute('id'));
      $.getJSON( '/c/'+selected, function(result){
-    $.each(result, function(i, field){alert(field);});
+    $.each(result, function(i, field){
+    $('<div>'+field[3]+'</div>').prependTo('.messages');
+    });
   });
    });
 

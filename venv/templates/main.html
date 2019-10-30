@@ -25,7 +25,13 @@ $(document).ready(function(){
      setTimeout(selected = e.target.getAttribute('id'));
      $.getJSON( '/c/'+selected, function(result){
     $.each(result, function(i, field){
-    $('<div>'+field[3]+'</div>').prependTo('.messages');
+        if(field[4] == 1){
+
+        $('<div style="margin-left: 20px;float:right; position: relative; border:1px solid;"><p style="text-align:right;">'+field[3]+'</p> <img src='+"field[0]"+' height="40px"style="margin: 8px; ></div>').prependTo('.messages');
+        }else{
+        $('<div style="text-align:left;>'+field[3]+'</div>').prependTo('.messages');
+        }
+
     });
   });
    });

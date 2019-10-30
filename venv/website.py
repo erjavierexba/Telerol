@@ -166,7 +166,7 @@ async def chatPage(chat):
         itsme = 0
         if meu.id == m.from_id:
             itsme = 1
-        if m.message != None:
+        if m.message is not None:
             i = i + 1
             result[i]= [photo, color, nickname, m.message, itsme]
             print(result[i])

@@ -27,7 +27,7 @@ $(document).ready(function(){
     $.each(result, function(i, field){
         if(field[4] == 1){
 
-        $('<div style="margin-left: 20px;float:right; position: relative; border:1px solid;"><p style="text-align:right;">'+field[3]+'</p> <img src='+"field[0]"+' height="40px"style="margin: 8px; ></div>').prependTo('.messages');
+        $('<div style="position: relative;"><div style="position: absolute;right: 0;max-width:80%;border:1px solid;"><p style="text-align:right;">'+field[3]+'</p> <img src="0" height="40px"style="margin: 8px; ></div><div>').prependTo('.messages');
         }else{
         $('<div style="text-align:left;>'+field[3]+'</div>').prependTo('.messages');
         }

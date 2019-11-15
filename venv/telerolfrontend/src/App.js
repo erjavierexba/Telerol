@@ -1,16 +1,17 @@
 import React from 'react';
-import logo from './logo.svg';
+import Login from './components/Login/Login';
+import { Provider } from 'react-redux';
 import './App.css';
+import { createStore } from 'redux';
+import {SendMSG} from './components/Reducers/SendMsg';
 
+const store = createStore(SendMSG,window.STATE_FROM_SERVER);
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <p>
-          ¡Hola buenas!
-        </p>
-      </header>
-    </div>
+    <Provider store={store}>
+        <Login/>
+    </Provider>
+    
   );
 }
 

@@ -170,7 +170,7 @@ async def chatPage(chat):
             i = i + 1
             result[i]= [photo, color, nickname, m.message, itsme]
             print(result[i])
-    return jsonify(result)
+    return render_template(result)
 
 @app.route("/", methods=["GET", "POST"])
 async def mainPage():

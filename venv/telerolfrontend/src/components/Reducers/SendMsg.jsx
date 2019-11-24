@@ -1,7 +1,7 @@
 import {SendMSG,DontSendMSG} from './../Actions/SendMsg'
   const initialState = {Accion: DontSendMSG,text: ""}
   
-export function SendMSG(state = initialState, action) {
+export function send(state = initialState, action) {
     switch (action.type) {
       case SendMSG:
         return {...state, ...action }

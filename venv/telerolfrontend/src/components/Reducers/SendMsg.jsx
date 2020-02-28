@@ -1,6 +1,5 @@
 import {SendMSG,DontSendMSG} from './../Actions/SendMsg'
   const initialState = {Accion: DontSendMSG,text: ""}
-  
 export function send(state = initialState, action) {
     switch (action.type) {
       case SendMSG:
@@ -9,4 +8,3 @@ export function send(state = initialState, action) {
         return state
     }
   }
-  

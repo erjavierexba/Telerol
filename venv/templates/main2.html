@@ -1,0 +1,171 @@
+<html>
+  <meta charset="UTF-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="login.jsx" />
+
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telerol</title>
+
+    <style>
+      <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+* {
+        margin: 0px;
+        box-sizing: border-box;
+      }
+
+      .column {
+        float: left;
+        display: block;
+        width: 22%;
+        background-color: powderblue;
+      }
+
+      .column1 {
+        float: left;
+        width: 45%;
+        background-color: yellow;
+      }
+      .column2 {
+        float: left;
+        width: 33%;
+        background-color: pink;
+      }
+
+      .row:after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+    </style>
+  </head>
+
+  <body style="margin: 0;">
+    <div
+      class="header"
+      style="float: left;width: 100%;background-color: #F0F8FF;"
+    >
+      <div
+        class="fifty"
+        style=" float: left;width: 50%;box-sizing: border-box;margin:0px;"
+      >
+        <img
+          class="logo"
+          src="https://i.imgur.com/EqWSUuE.png"
+          style="margin: 0.8%;"
+          title="source: imgur.com"
+          height="5%"
+          width="100"
+        />
+      </div>
+
+      <div
+        class="fifty"
+        style="display: inline;float: left;width: 50%;box-sizing: border-box;margin:0px;"
+      >
+        <form method="post">
+          <p style="float:right; margin: 1.5%; align: center;">
+            <input type="submit" name="Indent" value="Identifiquese" /> o
+            <input type="submit" name="Reg" value="Registrese" />
+          </p>
+        </form>
+      </div>
+    </div>
+    <div>
+      <div class="column">
+        <div class="info"></div>
+        <div class="chats" style="height:93.2%;">
+          <div class="row">
+            <div
+              class="chat"
+              id="me"
+              style="margin: 2px; background-color: white; overflow: auto; border: 1px solid black; border-radius: 3px;  width: 98%; float:left;"
+            >
+              <div class="photo-chat" style="align: center;">
+                <img
+                  src="https://i.imgur.com/V3ncxc5.png"
+                  width="45px"
+                  height="40px"
+                  style="margin: 8px; float:left;"
+                />
+              </div>
+              <div
+                class="title-chat"
+                style="text-align: center;margin-top: 0px;"
+              >
+                <p
+                  maxlength="20"
+                  style="float:left; font-family: 'Roboto', sans-serif; font-size:18px;"
+                >
+                  Un big big big big title
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="column1">
+        <div
+          class="chat-text"
+          id="chat-text"
+          style="height:93.2%; overflow:hidden"
+        >
+          <div
+            class="messages"
+            style="border: 1px solid black; border-radius: 6px;margin: 8px; background-color: white; height:83%;overflow:scroll;scroll-behavior: auto;"
+          ></div>
+          <div
+            class="input-chat"
+            style=" margin: 8px; border: 1px solid black; border-radius: 6px;background-color: white; height:auto;overflow:scroll;scroll-behavior: auto;"
+          >
+            <img
+              src="https://i.imgur.com/V3ncxc5.png"
+              width="78"
+              height="70"
+              style="margin: 8px; float:left;"
+            />
+            <textarea
+              required="required"
+              class="input-text"
+              cols="50"
+              rows="4"
+              style="margin: 8px;resize: none; float:left;"
+            ></textarea>
+            <img
+              class="send-message"
+              src="https://png.pngtree.com/svg/20170629/send_notification_334641.png"
+              width="50"
+              height="50"
+              style="padding:10px ; align: middle; margin: 8px; float:left;"
+            />
+          </div>
+        </div>
+      </div>
+      <div class="column2">
+        <div class="images" style="height:93.2%;">
+          <div
+            class="imageP"
+            style="width: 80%; height:50%; margin:2%; background-color:white; float:left;"
+          ></div>
+          <div
+            class="imageButtons"
+            style="width: 10%; height:50%; margin:2%; background-color:black;float:left;"
+          >
+            <div
+              id="editImg"
+              class="ButtonImg"
+              style="width:94%; height:10%; margin:12% 3%; background-color:white;"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

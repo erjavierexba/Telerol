@@ -48,20 +48,23 @@ BASE_TEMPLATE = '''
     </head>
     <body>
         {{ content | safe }}
-    <script>
-        function desconectar() {
-            axios.get('/disconnect');
-            console.log('ejemplo');
-        }
-    </script>
     </body>
 </html>
 '''
 
 PHONE_FORM = '''
 <form action='/' method='post'>
-    Phone (international format): <input name='phone' class='w3-white' type='text' placeholder='+34600000000'>
-    <input type='submit'>
+    <div style="position: absolute; top: 50%;left: 50%;transform: translateX(-50%) translateY(-50%);background-color:white;">
+        <div style="margin:20px;">
+            <div style="margin:20px;">
+                <img src="https://github.com/erjavierexba/Telerol/blob/master/venv/Logo.png" alt="Logo">
+            </div>
+            <div style="margin:20px;">
+                Teléfono (formato internacional): <input name='phone' class='w3-white' type='text' placeholder='+34600000000'>
+                <input type='submit'>
+            </div>
+        </div>
+    </div>
 </form>
 '''
 
@@ -119,19 +122,19 @@ async def cleanup():
 
 @app.route('/disconnect', methods=['GET', 'POST'])
 async def disconnect():
+    global client
     await client.log_out()
     global phone
     phone = None
+    client = TelegramClient('quartLogin', API_ID, API_HASH)
     return redirect('/')
 
 
 @app.route('/', methods=['GET', 'POST'])
 async def root():
-    # We want to update the global phone variable to remember it
     global phone
     if client.is_connected() == False:
         await client.connect()
-    # Check form parameters (phone/code)
     form = await request.form
     if 'phone' in form:
         phone = form['phone']
@@ -139,10 +142,7 @@ async def root():
 
     if 'code' in form:
         await client.sign_in(code=form['code'])
-
-    # If we're logged in, show them some messages from their first dialog
     if await client.is_user_authorized():
-        # They are logged in, show them some messages from their first dialog
         dialog = (await client.get_dialogs())[0]
         result = '<span class="grid-container">'
         result += '<div class="grid-item"><h2>{}</h2>'.format(

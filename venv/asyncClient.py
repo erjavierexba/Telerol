@@ -3,9 +3,9 @@ from requests import get
 from flask import Flask, request, render_template
 from telethon import functions, types, events, sync, TelegramClient
 from pymongo import MongoClient
+from imgurpython import ImgurClient
 from telethon.tl.functions.users import GetFullUserRequest
 from random import randrange
-from imgurpython import ImgurClient
 from PIL import Image
 from io import BytesIO
 import asyncio
@@ -16,13 +16,18 @@ import collections
 
 COLORS = [("BLUE", (255, 0, 0, 255)), ("GOLDEN", (218, 165, 32, 255)), ("LIME GREEN", (50, 205, 50, 255)),
           ("DARK ORCHID", (153, 50, 204, 255)), ("CHOCOLATE", (210, 105, 30, 255)),
-          ("LIGHT STEEL BLUE", (176, 196, 222, 255)), ("NAVY", (0, 0, 128, 255)), ("PURPLE", (128, 0, 128, 255)),
-          ("GRAY", (128, 128, 128, 255)), ("MAGENTA", (255, 0, 255, 255)), ("CYAN", (0, 255, 255, 255)),
-          ("CORNFLOWERBLUE", (100, 149, 237, 255)), ("INDIGO", (75, 0, 130, 255)), ("GREENYELLOW", (173, 255, 47, 255)),
+          ("LIGHT STEEL BLUE", (176, 196, 222, 255)), ("NAVY",
+                                                       (0, 0, 128, 255)), ("PURPLE", (128, 0, 128, 255)),
+          ("GRAY", (128, 128, 128, 255)), ("MAGENTA",
+                                           (255, 0, 255, 255)), ("CYAN", (0, 255, 255, 255)),
+          ("CORNFLOWERBLUE", (100, 149, 237, 255)), ("INDIGO",
+                                                     (75, 0, 130, 255)), ("GREENYELLOW", (173, 255, 47, 255)),
           ("MISTYROSE", (255, 228, 225, 255)), ("NAVAJOWHITE", (255, 222, 173, 255)),
           ("HONEYDEW", (240, 255, 240, 255)),
-          ("LAVENDERBLUSH", (255, 240, 245, 255)), ("BLUEVIOLET", (138, 43, 226, 255)), ("CRIMSON", (220, 20, 60, 255)),
-          ("PALEVIOLETRED", (219, 112, 147, 255)), ("FIREBRICK", (178, 34, 34, 255)), ("SALMON", (250, 128, 114, 255)),
+          ("LAVENDERBLUSH", (255, 240, 245, 255)), ("BLUEVIOLET",
+                                                    (138, 43, 226, 255)), ("CRIMSON", (220, 20, 60, 255)),
+          ("PALEVIOLETRED", (219, 112, 147, 255)), ("FIREBRICK",
+                                                    (178, 34, 34, 255)), ("SALMON", (250, 128, 114, 255)),
           ("GOLD", (255, 215, 0, 255)), ("HOTPINK", (255, 105, 180, 255)), ("DEEPSKYBLUE", (0, 191, 255, 255))]
 
 app = Flask(__name__)
@@ -53,7 +58,7 @@ async def getUsers(client):
     return res
 
 
-##TODO upgrade :D
+# TODO upgrade :D
 def searchUsername(fname, users):
     for i in users:
         if fname == i.first_name:
@@ -65,8 +70,11 @@ async def allDialogs(client):
     async for dialog in client.iter_dialogs():
         res.append('{:>14}: {}'.format(dialog.id, dialog.title))
     return res
+
+
 def getcolors():
     return COLORS
+
 
 def upload_img(client, pathImg):
     image = client.upload_from_path(pathImg)
@@ -88,7 +96,8 @@ def get_imgCli():
 
 
 def get_mongoDoc():
-    client = MongoClient("mongodb+srv://Telerol:MONOPOLy3@teleroldb-jvhhg.mongodb.net/test?retryWrites=true&w=majority")
+    client = MongoClient(
+        "mongodb+srv://Telerol:MONOPOLy3@teleroldb-jvhhg.mongodb.net/test?retryWrites=true&w=majority")
     db = client["Telerol"]
     collection = db["chats"]
     return collection
@@ -123,7 +132,8 @@ def createGroup(tClient, mClient, users, name, me):
         colours.remove(colours[value])
     idToNickname = idTofName
     # TODO idToPhoto
-    result = tClient(functions.messages.CreateChatRequest(users=users, title=name))
+    result = tClient(functions.messages.CreateChatRequest(
+        users=users, title=name))
     '''
     idChat = str(result.chats[0].id)
     dic = {}
@@ -134,6 +144,7 @@ def createGroup(tClient, mClient, users, name, me):
     mClient.insert_one(dic)
     return result, mClient.find_one({"idChat": str(idChat)})
     '''
+
 
 async def main():
     '''

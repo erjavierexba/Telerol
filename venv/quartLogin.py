@@ -2,13 +2,15 @@
 import base64
 import os
 import hypercorn.asyncio
-from quart import Quart, render_template_string, url_for, request, redirect
+from quart import Quart, render_template_string, url_for, request, redirect, jsonify
 from hypercorn.config import Config
 import asyncio
 from telethon import TelegramClient, utils, functions, types
 from pymongo import MongoClient
 from imgurpython import ImgurClient
-
+from PIL import Image
+from io import BytesIO
+import numpy as np
 
 def get_env(name, message):
     if name in os.environ:
@@ -90,6 +92,18 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 text-align: center;
                 vertical-align: center;
             }
+            .grid-item-chat {
+                padding: 2px;
+                font-size: 16px;
+                text-align: left;
+                vertical-align: center;
+            }
+            .grid-item-chat-2 {
+                padding: 2px;
+                font-size: 16px;
+                text-align: right;
+                vertical-align: center;
+            }
             .grid-item-2pos {
                 padding: 10px;
                 font-size: 18px;
@@ -114,6 +128,11 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 grid-template-columns: 28% 36% 36%;
                 grid-template-rows: calc(100%);
                 overflow:hidden;
+            }
+            .grid-container-message {
+                display: grid;
+                grid-template-columns: 91% 9%;
+                grid-template-rows: calc(100%);
             }
             .grid-item-7 {
                 font-size: 10px;
@@ -152,7 +171,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             .grid-container-col2{
                 height:100%;
                 display: grid;
-                grid-template-rows: calc(88%) calc(10%);
+                grid-template-rows: calc(87%) calc(10%);
                 grid-template-columns: 100%;
                 grid-row-gap: 5px;
                 overflow:hidden;
@@ -165,6 +184,13 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 grid-template-columns: 100%;
                 grid-row-gap: 5px;
                 overflow:hidden;
+            }
+            .chat_header{
+                width:100%;
+                height:10%;
+                display: grid;
+                grid-template-rows: calc(20%) calc(70%) calc(10%);
+                border-bottom: 1px solid black;
             }
             .grid-container-col3{
                 height:100%;
@@ -207,6 +233,28 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             .max-height2{
                 height:97%;
             }
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                border-bottom: 1px dotted black;
+            }
+
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 120px;
+                background-color: black;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 5px 0;
+                position: absolute;
+                z-index: 1;
+            }
+
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+            }
+            
             input[type="color"] {
                 -webkit-appearance: none;
                 border: none;
@@ -240,8 +288,29 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 transform: translateX(-50%) translateY(-50%);
             }
         </style>
+        <script>
+            if ( window.history.replaceState ) {
+                window.history.replaceState( null, null, window.location.href );
+            }
+        </script>
         <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
         <script>
+            function post(path, params, method='post') {
+                const form = document.createElement('form');
+                form.method = method;
+                form.action = path;
+                for (const key in params) {
+                    if (params.hasOwnProperty(key)) {
+                    const hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.name = key;
+                    hiddenField.value = params[key];
+                    form.appendChild(hiddenField);
+                    }
+                }
+                document.body.appendChild(form);
+                form.submit();
+            }
             function getRandomColor() {
                 var letters = '0123456789ABCDEF';
                 var color = '#';
@@ -249,7 +318,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     color += letters[Math.floor(Math.random() * 16)];
                 }
                 return color;
-            }  
+            }
             function stringToHTML(str){
                 var parser = new DOMParser();
                 console.log(new DOMParser().parseFromString(str, 'text/html'));
@@ -266,21 +335,32 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 console.log(y)
                 var reg = /^\d+$/;
                 if(y == "Crear grupo"){
-                    document.getElementById('menu').style.display = "none";
-                    document.getElementById('crear_grupo').style.display = "block";
+                    off('menu');
+                    on('crear_grupo');
+                    document.getElementById('mi_color').value = getRandomColor();
+                    if(document.getElementById('mi_nickname').value=='') document.getElementById('mi_nickname').value = getRandomNombre();
+                }
+                if( y == 'backToMenu'){
+                    on('menu');
+                    off('crear_grupo');
                 }
                 if(reg.test(y) && (document.getElementById('crear_grupo').style.display == "block") && (document.getElementById('chat_'+y)==null) ){
                     console.log("La id es " + y);
                     let id = document.getElementById('amigo_'+y).innerText;
                     let otros_datos = document.getElementById('amigo_otros_datos_'+y).innerText;
                     console.log("id", id, otros_datos);
-                    var res = stringToHTML("<div id='chat_"+y+"' class='grid-container-3' style='width:100%;background-color:white;border:1px solid black;height:12%'> <div class='grid-item-3 vcentrable'><p class='vcentered'>"+id+"</p></div><div class='grid-container-25-75 grid-item-3'> <input class='grid-item' name='amigo_color_"+y+"' type='color' value='"+getRandomColor()+"'/> <input style='font-size: 14px;'  class='grid-item-' type='text' name='amigo_nickname_"+y+"' value="+id+"></input> </div> <input class='grid-item-3' type='text' style='display:none;' name='amigo_n_"+y+"' value="+y+"></input><div class='grid-item-3 vcentrable'><img class='vcentered button' onClick='deleteChat("+y+")' style='width:20px;height:20px;' src='/static/minusSimbol.png'></div>  </div>");
+                    var res = stringToHTML("<div id='chat_"+y+"' class='grid-container-3' style='width:100%;background-color:white;border:1px solid black;height:12%'> <div class='grid-item-3 vcentrable'><p class='vcentered'>"+id+"</p></div><div class='grid-container-25-75 grid-item-3'> <input class='grid-item' name='amigo_color_"+y+"' type='color' value='"+getRandomColor()+"'/> <input style='font-size: 14px;text-align: center;'  class='grid-item-' type='text' name='amigo_nickname_"+y+"' value='"+getRandomNombre()+"'></input> </div> <input class='grid-item-3' type='text' style='display:none;' name='amigo_n_"+y+"' value="+y+"></input><div class='grid-item-3 vcentrable'><img class='vcentered button' onClick='deleteChat("+y+")' style='width:20px;height:20px;' src='/static/minusSimbol.png'></div>  </div>");
                     let divChild = res.getElementById('chat_'+y);
                     document.getElementById('new_usuarios').appendChild(divChild);
                 }
             }
             function on( s ) {
                 document.getElementById(s).style.display = "block";
+            }
+            function getRandomNombre(){
+                let fname = [ 'Agapetus', 'Aimon', 'Beltran', 'Berto', 'Bronco', 'Cipriano', 'Cisco', 'Cortez', 'Cruz', 'Cuba', 'Dario', 'Desiderio', 'Diego', 'Dimos', 'Fanuco', 'Federico', 'Fraco','Francisco', 'Frisco', 'Gervasio', 'Gig', 'Gonzalo', 'Guido', 'Guillermo', 'Hernan', 'Hilario', 'Ignado', 'Isidro', 'Jaguar', 'Jair', 'Javier', 'Jerrold', 'Juan', 'Kiki','Larenzo', 'Lisandro', 'Loredo', 'Lorenzo', 'Macario', 'Malvolio', 'Manuel', 'Marjun', 'Montana', 'Montego', 'Montel', 'Montenegro', 'Nasario', 'Nemesio', 'Neper','Neron', 'Adalia', 'Aidia', 'Alva', 'Aureliano', 'Belinda', 'Bettina', 'Carey', 'Carlotta', 'Coco', 'Damita', 'Delfina', 'Duenna', 'Dulcie', 'Elvira', 'Enriqua', 'Esmerelda', 'Esperanza', 'Fe', 'Fonda', 'Fridam', 'Friera', 'Gitana', 'Gotzone', 'Guadalupe', 'Hermosa', 'Ines', 'Isabel', 'Itzel', 'Jade', 'Jardena', 'Julitta', 'Kesare', 'Kiki', 'Lacienegam', 'Ladonna', 'Landrada', 'Lela','Lenora', 'Leya', 'Liani', 'Linda', 'Lluvia', 'Lola', 'Lolita', 'Luisa', 'Lujuana', 'Lupita', 'Lux', 'Luz', 'Madeira', 'Pagination'];
+                let lname = ['Dawnmight', 'Casktalon', 'Phoenixbleeder', 'Springwing', 'Crystalweaver', 'Whitmantle', 'Nosehand', 'Brightbluff', 'Wildkeep', 'Saursky', 'Terrawhisk', 'Soliddoom', 'Rosehorn', 'Highfall', 'Emberwind', 'Wyvernmark', 'Blackspell', 'Chestdoom', 'Windflame', 'Crestfang', 'Sugnes', 'Roffilles', 'Vassetillon', 'Polannes', 'Ronchechanteau', 'Béchadras', 'Albillon', 'Estielon', 'Bonnemeur', 'Machegner', 'Chamirel', 'Béchallane', 'Beleveron', 'Ligninton', 'Caffazin', 'Croileilles', 'Choinie', 'Abaffet', 'Polathier', 'Ronchezac'];
+                return  (fname[Math.floor(Math.random() * fname.length)]+" "+lname[Math.floor(Math.random() * lname.length)]);
             }
             function off( s ) {
                 document.getElementById(s).style.display = "none";
@@ -290,23 +370,34 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 var target = e.target || e.srcElement;
                 if(target.id == "overlay"){
                     document.getElementById('menu').style.display = "block";
-                    document.getElementById('crear_grupo').style.display = "block";
+                    document.getElementById('crear_grupo').style.display = "none";
                     document.getElementById("overlay").style.display = "none";
                 }
+            }
+            function send(params){
+                post('/',params);
+            }
+            function leeChat(id){
+                send({'id':id, 'post_method':'leer_grupo'})
             }
         </script>
         <script  type="text/javascript">
             function readURL(input) {
-                console.log("read URL ok",input.files && input.files[0],input.files, input.files[0]);
                 if (input.files && input.files[0]) {
                     var reader = new FileReader();
                     reader.onload = function (e) {
                         $('#blah').attr('src', e.target.result);
+                        $('#foto_grupo_str').attr('value', e.target.result);
                     }
-
                     reader.readAsDataURL(input.files[0]);
                 }
             }
+            $("#TextToSend").keypress(function (e) {
+                if(e.which == 13 && !e.shiftKey) {
+                    $(this).closest("form").submit();
+                    e.preventDefault();
+                }
+            });
         </script>
         <meta charset='UTF-8'>
         <title>Telerol</title>
@@ -392,12 +483,15 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                 </div>
                             </div>
                         </div>
-                        <div id="crear_grupo" class="grid-item-3 max-height2" style="display:none; grid-column : 2 / 4">
-                            <div class="vcentrable" style="height:50%">
+                        <form action='/' method=POST  class="grid-item-3 max-height2" id="crear_grupo" style="display:none; grid-column : 2 / 4">
+                            <input name='post_method' value='crear_grupo' style='display:none;'/>
+                            <input id='foto_grupo_str' name='foto_grupo_str' value='' style='display:none;'/>
+                            <div class="vcentrable" style="height:40%">
                                 <div class="vcentered">
                                     <div style="background-color:white;margin:5px;" >
                                         <div class="grid-container-half vcentrable">
                                             <span class="grid-item vcentered">
+                                                <img class='button' onclick='myFunction("backToMenu")' style='width:20px;height:20px;float:left' src='/static/leftArrow.png'>
                                                 <p style="font-size:26px;">CREAR GRUPO</p>
                                             </span>
                                         </div>
@@ -408,7 +502,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                                     <input name="nombre_grupo" style="font-size:16px;"></input>
                                                 </div>
                                                 <div class="grid-item">
-                                                    <p style="font-size:16px;">Nombre del grupo</p>
+                                                    <p style="font-size:16px;">Foto del grupo</p>
                                                     <input name="foto_grupo" onchange="readURL(this)" id="foto_grupo" type="file"></input>
                                                 </div>
                                                 <div class="grid-item">
@@ -418,13 +512,13 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                         </div>
                                         <div class="grid-container-half vcentrable">
                                             <div class="grid-item vcentered">
-                                                <p style="font-size:16px;">Pincha en los usuarios que quieres agregar</p> 
+                                                <p style="font-size:16px;">Pincha en los usuarios que quieres agregar</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="vcentrable" id="new_usuarios" style="height:40%; overflow-y: scroll;">
+                            <div class="vcentrable" id="new_usuarios" style="height:50%; overflow-y: scroll;">
                                 <div class='grid-container-3' style='width:100%;background-color:white;'>
                                     <div class='grid-item-3 vcentrable' style='border:1px solid black;font-weight: bold;'>
                                         <p class='vcentered'>USUARIO</p>
@@ -436,8 +530,23 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                         <p class='vcentered'>ELIMINAR DEL GRUPO</p>
                                     </div>
                                 </div>
+                                <div class='grid-container-3' style='width:100%;background-color:white;border:1px solid black;height:12%'>
+                                    <div class='grid-item-3 vcentrable'>
+                                        <p class='vcentered'>Usted</p>
+                                    </div>
+                                    <div class='grid-container-25-75 grid-item-3'>
+                                        <input class='grid-item' name='mi_color' id='mi_color' type='color'/>
+                                        <input style='font-size: 14px;text-align: center;'  class='grid-item-3' type='text' name='mi_nickname' id='mi_nickname' value=''></input> 
+                                    </div>
+                                    <div class='grid-item-3 vcentrable'>
+                                        <p class='vcentered'></p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                            <div class="vcentrable"  style="height:10%;">
+                                <input type='submit'/>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -567,14 +676,7 @@ MENU_FORM = '''
     </div>
     <div class="grid-item-menu" style="padding:10px;">
         <div class="w3-panel w3-white w3-round-xlarge max-height">
-            <div class="grid-container-col2" style="padding:5px;">
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-            </div>
+            {messages}
         </div>
     </div>
     <div class="grid-item-menu" style="padding:10px;">
@@ -673,9 +775,114 @@ async def root():
     if 'code' in form:
         await arrayClients[ip].sign_in(code=form['code'])
     if await arrayClients[ip].is_user_authorized():
+        me = await arrayClients[ip].get_me()
         ch = ''
         mongo = get_mongoDoc()
         amigos = ''''''
+        messages= '''
+                <div style="background-color:white;width:100%;height:100%;">
+                    <div class="chat_header">
+                    </div>
+                </div>
+                '''
+        if 'post_method' in form:
+            if form['post_method'] == 'leer_grupo':
+                result = await arrayClients[ip].get_messages(int(form['id']),limit=40,reverse=False)
+                chat = await arrayClients[ip].get_entity(int(form['id']))
+                chatMongo = mongo.find_one({"idChat": form['id']})
+                messages= '''<div style="background-color:white;padding:8px; width:100%;height:100%;">
+                        <div class="chat_header">
+                            <img src={photo} alt="error" style="height:60px;width:60px;padding-top: 5px;padding-bottom: 5px;">
+                            <div >
+                                <input type='button' class='w3-btn w3-white' style="font-size:20px;" value={name}>
+                            </div>
+                        </div>
+                        <div style="height:78%;overflow-y: scroll;display: flex;flex-direction: column-reverse; border-bottom:2px solid black;">
+                        '''.format(
+                            photo= chatMongo['fotoGrupo'],
+                            name=chat.title
+                        )
+                for mes2 in result:
+                    mes = mes2.to_dict()
+                    await arrayClients[ip].send_read_acknowledge(int(form['id']), message=mes2)
+                    m=''
+                    if mes['_'] == "Message":
+                        if mes['from_id'] == me.id :
+                            m='''<div style="padding:2px;display:grid;grid-template-columns: calc(10%) calc(90%);" >
+                                <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 2 / 3;" >
+                                    <div class="grid-item-chat grid-container-message">
+                                        <div class="grid-item-3 " style="margin:0px;">
+                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
+                                            <p style="padding:5px;font-size:14px;text-align: right; overflow-wrap: break-word;">{message}</p>
+                                        </div>
+                                        <div class="grid-item-3" style="padding:5px;">
+                                            <img src={photo} style="height:45px;width:45px;" >
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>'''.format(
+                                photo = chatMongo [str(mes['from_id'])]['photo'],
+                                nickname =  chatMongo [str(mes['from_id'])]['nickname'],
+                                color =  chatMongo [str(mes['from_id'])]['color'],
+                                message = mes['message']
+                            )
+                        else:
+                            m='''<div style="display:grid;grid-template-columns: calc(90%) calc(10%);" >
+                                <div style="background-color:white; border: 1px solid black; grid-column: 1 / 2;" >
+                                    <div class="grid-item grid-container-icon">
+                                        <div class="grid-item-3" style="padding:5px;">
+                                            <img src={photo} style="height:20px;width:20px;" >
+                                        </div>
+                                        <div class="grid-item-3 " style="margin:0px; grid-column: 2 / 4;">
+                                            <div class="grid-container-half vcentrable">
+                                                <span class="grid-item vcentered">
+                                                    <p style="font-size:12px;color:{color};">Nick: {nickname}</p>
+                                                    <p style="font-size:10px;">{message}</p>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>'''.format(
+                                photo = chatMongo [str(mes['from_id'])]['photo'],
+                                nickname =  chatMongo [str(mes['from_id'])]['nickname'],
+                                color =  chatMongo [str(mes['from_id'])]['color'],
+                                message = mes['message']
+                            )
+                    messages = messages+m
+                messages= messages+'''</div>
+                <div style='text-align:left;'>
+                    <form>
+                        <textarea style='font-size:16px;resize: none;' name="TextToSend" id="TextToSend" cols="60" rows="4"></textarea>
+                    </form>
+                </div>
+                </div>'''
+            if form['post_method'] == 'crear_grupo':
+                f = form.to_dict()
+                res = [val for key, val in form.to_dict().items()
+                       if 'amigo_n_' in key]
+                insertion = {'users': [me.id]}
+                insertion[str(me.id)] = {'color': f['mi_color'], 'nickname': f['mi_nickname']}
+                for i in res:
+                    insertion[i] = {'color': f['amigo_color_'+i], 'nickname': f['amigo_nickname_'+i]}
+                    insertion['users'].append(int(i))
+                result = await arrayClients[ip](functions.messages.CreateChatRequest(
+                    users=insertion['users'], title=f['nombre_grupo']))
+                idChat = str(result.chats[0].id)
+                os.mkdir(os.getcwd()+'/static/groups/'+idChat+'/')
+                insertion['idChat'] = idChat
+                insertion['fotoGrupo'] = ''
+                if(f['foto_grupo_str'] != ''):
+                    b64_string = form['foto_grupo_str'].split(';base64,')[1]
+                    b64_string += "=" * ((4 - len(b64_string) % 4) % 4)
+                    imgdata = Image.open(BytesIO(base64.b64decode(b64_string)))
+                    filename = 'static/groups/'+idChat+'/fotoGrupo.'+form['foto_grupo'].split('.')[1]
+                    imgdata.save(filename, (form['foto_grupo'].split('.')[1]).upper())
+                    insertion['fotoGrupo'] = '/'+filename
+                insertion[str(me.id)]['photo'] = createDefaultProfilePhoto(f['mi_color'],str(me.id),idChat)
+                for i in res:
+                    insertion[i]['photo'] = createDefaultProfilePhoto(f['amigo_color_'+i],i,idChat)
+                mongo.insert_one(insertion)
         for friend in (await arrayClients[ip](functions.contacts.GetContactsRequest(hash=0))).users:
             if(friend.mutual_contact is True):
                 amigos = amigos + '''<button style="background-color:white;margin:5px;width:95%; height:100px;" onclick="myFunction({id})">
@@ -693,13 +900,13 @@ async def root():
                         </div>
                     </button>
                 '''.format(id=friend.id, fn=friend.first_name, us=friend.username, telf=friend.phone)
-        me = await arrayClients[ip].get_me()
         for dialog in await arrayClients[ip].get_dialogs():
             chatMongo = mongo.find_one({"idChat": str(dialog.entity.id)})
             if chatMongo is not None:
+                dia ='inline-block' if dialog.unread_count>0 else 'none'
                 ch = ch + '''
-                    <button style="background-color:white;margin:5px;width:95%; height:100px;" onclick="myFunction({id})">
-                        <div style="background-color:white;margin:5px;">
+                    <button style="background-color:white;margin:5px;width:95%; height:100px;" onclick="leeChat({id})">
+                        <div id="{id}" style="background-color:white;margin:5px;">
                             <div class="grid-item grid-container-icon" style="height:100%">
                                 <div class="grid-item-3" style="margin:5px;">
                                     <img src={photo} style="height:100%;width:100%;" >
@@ -707,7 +914,10 @@ async def root():
                                 <div class="grid-item-3 " style="margin:0px; grid-column: 2 / 4;">
                                     <div class="grid-container-half vcentrable">
                                         <span class="grid-item vcentered">
-                                            <p style="font-size:16px;">{name}</p>
+                                            <div style="display: grid;grid-template-columns: calc(88%) calc(12%); overflow:hidden;">
+                                                <span title="{name}" ><p style="font-size:16px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">{name}</p></span>
+                                                <p style="font-size:13px;color:white;background-color:lightblue; display: {style};">{notifications}</p>
+                                            </div>
                                             <p style="font-size:12px;color:grey;">Nick: {nickname}</p>
                                         </span>
                                     </div>
@@ -717,11 +927,13 @@ async def root():
                     </button>
                 '''.format(
                     name=dialog.name,
-                    photo=chatMongo['idToPhoto'][str(me.id)],
+                    photo=chatMongo['fotoGrupo'],
                     id=str(dialog.entity.id),
-                    nickname=chatMongo['idToNickname'][str(me.id)]
+                    nickname=chatMongo[str(me.id)]['nickname'],
+                    notifications=dialog.unread_count,
+                    style= dia
                 )
-        return await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name, name='@'+me.username, chats=ch))
+        return await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name,  messages=messages, name='@'+me.username, chats=ch))
 
     # Ask for the phone if we don't know it yet
     if arrayClients[ip+'telf'] is None:
@@ -729,13 +941,23 @@ async def root():
 
     return await render_template_string(BASE_TEMPLATE, content=CODE_FORM)
 
-
 def get_imgCli():
     CLIENT_ID = 'e16b30a76cbed68'
     CLIENT_SECRET = '8796078f422ceac6352c97ed8ffc33c3c08a4665'
     client = ImgurClient(CLIENT_ID, CLIENT_SECRET)
     return client
 
+def createDefaultProfilePhoto (color, id, chatId):
+    im = Image.open('default.png')
+    im = im.convert('RGBA')
+    c = color.split('#')[1]
+    c2 = tuple(int(c[i:i+2], 16) for i in (0, 2, 4))
+    data = np.array(im)
+    red, green, blue, alpha = data.T
+    white_areas = (red == 0) & (blue == 0) & (green == 0)
+    data[..., :-1][white_areas.T] = (c2[0], c2[1], c2[2])  # Transpose back needed
+    Image.fromarray(data).save("static/groups/"+chatId+"/"+id+".png","PNG")
+    return "/static/groups/"+chatId+"/"+id+".png"
 
 def get_mongoDoc():
     client = MongoClient(

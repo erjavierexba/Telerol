@@ -5,7 +5,7 @@ import hypercorn.asyncio
 from quart import Quart, render_template_string, url_for, request, redirect, jsonify
 from hypercorn.config import Config
 import asyncio
-from telethon import TelegramClient, utils, functions, types
+from telethon import TelegramClient, utils, functions, types, events
 from pymongo import MongoClient
 from imgurpython import ImgurClient
 from PIL import Image
@@ -25,7 +25,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
     <head>
         <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
         <meta name="viewport" content="width=device-width, height=device-height, user-scalable=no">
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.min.js" integrity="sha256-T/f7Sju1ZfNNfBh7skWn0idlCBcI3RwdLSS4/I7NQKQ=" crossorigin="anonymous"></script>
         <style>
             #overlay {
                 position: fixed;
@@ -74,6 +73,11 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 display: grid;
                 grid-template-columns: auto auto auto;
                 padding: 10px;
+            }
+            .grid-container-message-input {
+                display: grid;
+                grid-template-columns: 85% 15%;
+                padding: 2px;
             }
             ::-webkit-scrollbar {
                 width: 12px;
@@ -294,6 +298,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
         </script>
         <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
         <script>
             function post(path, params, method='post') {
                 const form = document.createElement('form');
@@ -392,12 +397,50 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     reader.readAsDataURL(input.files[0]);
                 }
             }
-            $("#TextToSend").keypress(function (e) {
-                if(e.which == 13 && !e.shiftKey) {
-                    $(this).closest("form").submit();
-                    e.preventDefault();
+            function onTestChange() {
+                var key = window.event.keyCode;
+                if (key === 13) {
+                    document.getElementById("sendAMessage").submit();
                 }
+            }
+        </script>
+        <script>
+            axios.post('/test',{test:'test'})
+            .then(function (response) {
+                // handle success
+                console.log(response);
+            })
+            .catch(function (error) {
+                // handle error
+                console.log(error);
+            })
+            .then(function () {
+                // always executed
             });
+        </script>
+        <script type="text/javascript">
+            let recorder = null
+            function startRecording(){
+                 navigator.getUserMedia({
+                    audio: true
+                }, onsuccess, (e) => {
+                    recorder = new MediaRecorder(stream, {
+                        type: 'audio/ogg; codecs=opus'
+                    });
+                    recorder.start(); // Starting the record
+                });
+            }
+            function stopRecording(){
+                recorder.stop(); // Starting the record
+
+                recorder.ondataavailable = (e) => {
+                    let reader = new FileReader()
+                    reader.onloadend = () => {
+                        console.log("reader.result",reader.result);
+                    }
+                    reader.readAsDataURL(e.data);
+                }
+            }
         </script>
         <meta charset='UTF-8'>
         <title>Telerol</title>
@@ -744,6 +787,13 @@ async def startup():
 async def cleanup():
     await client.disconnect()
 
+@app.route('/test', methods=['POST'])
+async def test():
+    data = await request.json
+    print("DATA",data)
+    return {'beta':'de mis tetas'}
+
+
 
 @app.route('/disconnect', methods=['GET', 'POST'])
 async def disconnect():
@@ -756,19 +806,27 @@ async def disconnect():
     return redirect('/')
 
 
+
+async def updater(event):
+    print(event.message.message)
+
 @app.route('/', methods=['GET', 'POST'])
 async def root():
     ip = request.remote_addr
     ip = ip.replace('.', '_')
     global arrayClients
-    if ip in arrayClients:
-        print('¡everything Wut!')
-    else:
+    if ip not in arrayClients:
         arrayClients[ip] = TelegramClient(ip, API_ID, API_HASH)
         arrayClients[ip+'telf'] = None
-    if arrayClients[ip].is_connected() == False:
+    if not arrayClients[ip].is_connected():
         await arrayClients[ip].connect()
     form = await request.form
+    if request.method == 'GET':
+        for callback in arrayClients[ip].list_event_handlers():
+            name = str(str(callback[0]).split(' at 0x')[0]).split('function ')[1]
+            if name is not 'updater':
+                arrayClients[ip].add_event_handler(updater, events.NewMessage)
+                break
     if 'phone' in form:
         arrayClients[ip+'telf'] = form['phone']
         await arrayClients[ip].send_code_request(arrayClients[ip+'telf'])
@@ -786,7 +844,12 @@ async def root():
                 </div>
                 '''
         if 'post_method' in form:
-            if form['post_method'] == 'leer_grupo':
+            reload =  False
+            if form['post_method'] == 'enviar_mensaje':
+                print(form.to_dict())
+                await arrayClients[ip].send_message(int(form['id']), form['TextToSend'])
+                reload = True
+            if form['post_method'] == 'leer_grupo' or reload:
                 result = await arrayClients[ip].get_messages(int(form['id']),limit=40,reverse=False)
                 chat = await arrayClients[ip].get_entity(int(form['id']))
                 chatMongo = mongo.find_one({"idChat": form['id']})
@@ -827,19 +890,15 @@ async def root():
                                 message = mes['message']
                             )
                         else:
-                            m='''<div style="display:grid;grid-template-columns: calc(90%) calc(10%);" >
-                                <div style="background-color:white; border: 1px solid black; grid-column: 1 / 2;" >
-                                    <div class="grid-item grid-container-icon">
-                                        <div class="grid-item-3" style="padding:5px;">
-                                            <img src={photo} style="height:20px;width:20px;" >
+                            m='''<div style="padding:2px;display:grid;grid-template-columns: calc(90%) calc(10%);" >
+                                <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 1 / 2;" >
+                                    <div class="grid-item-chat grid-container-message">
+                                        <div class="grid-item-3 " style="margin:0px;">
+                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
+                                            <p style="padding:5px;font-size:14px;text-align: right; overflow-wrap: break-word;">{message}</p>
                                         </div>
-                                        <div class="grid-item-3 " style="margin:0px; grid-column: 2 / 4;">
-                                            <div class="grid-container-half vcentrable">
-                                                <span class="grid-item vcentered">
-                                                    <p style="font-size:12px;color:{color};">Nick: {nickname}</p>
-                                                    <p style="font-size:10px;">{message}</p>
-                                                </span>
-                                            </div>
+                                        <div class="grid-item-3" style="padding:5px;">
+                                            <img src={photo} style="height:45px;width:45px;" >
                                         </div>
                                     </div>
                                 </div>
@@ -852,12 +911,28 @@ async def root():
                     messages = messages+m
                 messages= messages+'''</div>
                 <div style='text-align:left;'>
-                    <form>
-                        <textarea style='font-size:16px;resize: none;' name="TextToSend" id="TextToSend" cols="60" rows="4"></textarea>
+                    <form id="sendAMessage" action="/" method="post">
+                        <div class="grid-container-message-input">
+                            <input name='id' value={id} style='display:none;'/>
+                            <input name='post_method' value='enviar_mensaje' style='display:none;'/>
+                            <div style="grid-column: 1 / 2;">
+                                <textarea autofocus onkeypress="onTestChange();" style='font-size:16px;resize: none;' name="TextToSend" id="TextToSend" cols="60" rows="4"></textarea>
+                            </div>
+
+                            <div style="grid-column: 2 / 3;">
+                                <button type="submit" class="btn btn-success w3-btn w3-white" style="width:30%;height:30%;">
+                                    <img  src="/static/send.png" style="width:100%;height:100%;">
+                                </button>
+                                <input type="file" accept="audio/*" capture="microphone" id="recorder">
+                            </div>
+                            <audio id="player" controls></audio>
+                        </div>
                     </form>
                 </div>
-                </div>'''
-            if form['post_method'] == 'crear_grupo':
+                </div>'''.format(
+                    id= form['id']
+                )
+            elif form['post_method'] == 'crear_grupo':
                 f = form.to_dict()
                 res = [val for key, val in form.to_dict().items()
                        if 'amigo_n_' in key]
@@ -941,11 +1016,7 @@ async def root():
 
     return await render_template_string(BASE_TEMPLATE, content=CODE_FORM)
 
-def get_imgCli():
-    CLIENT_ID = 'e16b30a76cbed68'
-    CLIENT_SECRET = '8796078f422ceac6352c97ed8ffc33c3c08a4665'
-    client = ImgurClient(CLIENT_ID, CLIENT_SECRET)
-    return client
+    
 
 def createDefaultProfilePhoto (color, id, chatId):
     im = Image.open('default.png')
@@ -964,6 +1035,9 @@ def get_mongoDoc():
         "mongodb+srv://Telerol:MONOPOLy3@teleroldb-jvhhg.mongodb.net/test?retryWrites=true&w=majority")["Telerol"]["chats"]
     return client
 
+@app.websocket('/example')
+async def example():
+    print('example')
 
 async def main():
     if modoONLINE == True:

@@ -4,6 +4,7 @@ import os
 import hypercorn.asyncio
 from quart import Quart, render_template_string, url_for, request, redirect, jsonify
 from hypercorn.config import Config
+from pathlib import Path
 import asyncio
 from telethon import TelegramClient, utils, functions, types, events
 from pymongo import MongoClient
@@ -11,7 +12,8 @@ from imgurpython import ImgurClient
 from PIL import Image
 from io import BytesIO
 import numpy as np
-
+from dice import diceThrow, printMem
+from imageF import createToken
 def get_env(name, message):
     if name in os.environ:
         return os.environ[name]
@@ -20,12 +22,25 @@ def get_env(name, message):
 
 modoONLINE = False
 
+modoSoloTexto = False
+
 BASE_TEMPLATE = '''<!DOCTYPE html>
 <html>
     <head>
         <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
         <meta name="viewport" content="width=device-width, height=device-height, user-scalable=no">
         <style>
+            .dropup:hover .dropup-content {
+                display: block;
+            }
+            .dropup-content {
+                display: none;
+                position: absolute; 
+                bottom: 30px;
+                width:375%;
+                height:125%
+                z-index: 3;
+            }
             #overlay {
                 position: fixed;
                 display: none;
@@ -37,6 +52,32 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 bottom: 0;
                 background-color: rgba(0,0,0,0.5);
                 z-index: 2;
+                cursor: pointer;
+            }
+            #diceCalculator {
+                position: fixed;
+                display: none;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 60;
+                cursor: pointer;
+            }
+            #editPerfil {
+                position: fixed;
+                display: none;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 60;
                 cursor: pointer;
             }
             .button:hover {
@@ -76,8 +117,9 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
             .grid-container-message-input {
                 display: grid;
-                grid-template-columns: 85% 15%;
+                grid-template-columns: 20% 62% 18%;
                 padding: 2px;
+                vertical-align: middle;
             }
             ::-webkit-scrollbar {
                 width: 12px;
@@ -90,6 +132,19 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 border-radius: 10px;
                 -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.8);
             }
+            .grid-container-submenu-sender {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+                gap: 1px 1px;
+                grid-template-areas:
+                    "btnSubMenu1 btnSubMenu2"
+                    "btnSubMenu3 btnSubMenu4";
+            }
+            .btnSubMenu1 { grid-area: btnSubMenu1; }
+            .btnSubMenu2 { grid-area: btnSubMenu2; }
+            .btnSubMenu3 { grid-area: btnSubMenu3; }
+            .btnSubMenu4 { grid-area: btnSubMenu4; }
             .grid-item {
                 padding: 10px;
                 font-size: 18px;
@@ -136,6 +191,11 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             .grid-container-message {
                 display: grid;
                 grid-template-columns: 91% 9%;
+                grid-template-rows: calc(100%);
+            }
+            .grid-container-message-2 {
+                display: grid;
+                grid-template-columns: 9%  91% ;
                 grid-template-rows: calc(100%);
             }
             .grid-item-7 {
@@ -293,13 +353,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
         </style>
         <script>
-            if ( window.history.replaceState ) {
-                window.history.replaceState( null, null, window.location.href );
-            }
-        </script>
-        <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-        <script>
+            
             function post(path, params, method='post') {
                 const form = document.createElement('form');
                 form.method = method;
@@ -330,8 +384,64 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 var doc = parser.parseFromString(str, 'text/html');
                 return doc;
             }
+            function sendDiceMessage( id ){
+                let bod = {
+                    'id':id,
+                    'plusminusd4':document.getElementById("plusminusd4").value,
+                    'd4':document.getElementById("d4").value,
+                    'plusminusd6':document.getElementById("plusminusd6").value,
+                    'd6':document.getElementById("d6").value,
+                    'plusminusd8':document.getElementById("plusminusd8").value,
+                    'd8':document.getElementById("d8").value,
+                    'plusminusd10':document.getElementById("plusminusd10").value,
+                    'd10':document.getElementById("d10").value,
+                    'plusminusd12':document.getElementById("plusminusd12").value,
+                    'd12':document.getElementById("d12").value,
+                    'plusminusd20':document.getElementById("plusminusd20").value,
+                    'd20':document.getElementById("d20").value,
+                    'plusminusd100':document.getElementById("plusminusd100").value,
+                    'd100':document.getElementById("d100").value,
+                    'plusminuscustom':document.getElementById("plusminuscustom").value,
+                    'dCustom':document.getElementById("dCustom").value,
+                    'dCustomSize':document.getElementById("dCustomSize").value,
+                    'mod':document.getElementById("mod").value,
+                }
+                let res = '';
+                if(parseInt(bod['d4'])>0) res = res + bod['plusminusd4']+bod['d4']+"d4";
+                if(parseInt(bod['d6'])>0) res = res + bod['plusminusd6']+bod['d6']+"d6";
+                if(parseInt(bod['d8'])>0) res = res + bod['plusminusd8']+bod['d8']+"d8";
+                if(parseInt(bod['d10'])>0) res = res + bod['plusminusd10']+bod['d10']+"d10";
+                if(parseInt(bod['d12'])>0) res = res + bod['plusminusd12']+bod['d12']+"d12";
+                if(parseInt(bod['d20'])>0) res = res + bod['plusminusd20']+bod['d20']+"d20";
+                if(parseInt(bod['d100'])>0) res = res + bod['plusminusd100']+bod['d100']+"d100";
+                if(parseInt(bod['dCustom'])>0 && parseInt(bod['dCustomSize'])>0) res = res + bod['plusminuscustom']+bod['dCustom']+"d"+bod['dCustomSize'];
+                if(parseInt(bod['mod']) >= 0) res = res + "+" +bod['mod'];
+                else res = res  +bod['mod'];
+                axios.post('/sendDiceMessage',{idChat:id,data:res})
+                        .then(function (response) {
+                            console.log(response.data);
+                            document.getElementById("plusminusd4").value = "+";
+                            document.getElementById("d4").value = "0";
+                            document.getElementById("plusminusd6").value= "+";
+                            document.getElementById("d6").value = "0";
+                            document.getElementById("plusminusd8").value= "+";
+                            document.getElementById("d8").value = "0";
+                            document.getElementById("plusminusd10").value= "+";
+                            document.getElementById("d10").value = "0";
+                            document.getElementById("plusminusd12").value= "+";
+                            document.getElementById("d12").value = "0";
+                            document.getElementById("plusminusd20").value= "+";
+                            document.getElementById("d20").value = "0";
+                            document.getElementById("plusminusd100").value= "+";
+                            document.getElementById("d100").value = "0";
+                            document.getElementById("plusminuscustom").value= "+";
+                            document.getElementById("dCustom").value = "0";
+                            document.getElementById("dCustomSize").value = "0";
+                            document.getElementById("mod").value = "0";
+                            document.getElementById("diceCalculator").style.display = "none";
+                        });
+            }
             function deleteChat( chat){
-                console.log('chat',chat)
                 let varDel = 'chat_'+chat;
                 let element = document.getElementById(varDel);
                 element.parentNode.removeChild(element);
@@ -379,6 +489,20 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     document.getElementById("overlay").style.display = "none";
                 }
             }
+            function onClickAwayDice(e) {
+                e = e || window.event;
+                var target = e.target || e.srcElement;
+                if(target.id == "diceCalculator"){
+                    document.getElementById("diceCalculator").style.display = "none";
+                }
+            }
+            function onClickAwayEditPerfil(e) {
+                e = e || window.event;
+                var target = e.target || e.srcElement;
+                if(target.id == "editPerfil"){
+                    document.getElementById("editPerfil").style.display = "none";
+                }
+            }
             function send(params){
                 post('/',params);
             }
@@ -386,6 +510,8 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 send({'id':id, 'post_method':'leer_grupo'})
             }
         </script>
+        <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
         <script  type="text/javascript">
             function readURL(input) {
                 if (input.files && input.files[0]) {
@@ -397,49 +523,79 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     reader.readAsDataURL(input.files[0]);
                 }
             }
-            function onTestChange() {
+            function sendImage(id, input) {
+                console.log(id,input)
+                if (input.files && input.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        axios.post('/sendImage',{idChat:id, data:reader.result})
+                            .then(function (response) {
+                                console.log(response.data);
+                            });
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+            function createToken(id, input) {
+                console.log(id,input)
+                if (input.files && input.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        axios.post('/createToken',{idChat:id, data:reader.result})
+                            .then(function (response) {
+                                console.log(response.data);
+                            });
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+            function onTextChange() {
                 var key = window.event.keyCode;
-                if (key === 13) {
+                if (key === 13 && !window.event.shiftKey) {
                     document.getElementById("sendAMessage").submit();
                 }
             }
         </script>
-        <script>
-            axios.post('/test',{test:'test'})
-            .then(function (response) {
-                // handle success
-                console.log(response);
-            })
-            .catch(function (error) {
-                // handle error
-                console.log(error);
-            })
-            .then(function () {
-                // always executed
-            });
-        </script>
         <script type="text/javascript">
-            let recorder = null
+            let recorder = null;
+            let isRecording = false;
+            let streamAudio = null;
+            function recorderController(id){
+                console.log('Recorder val',recorder)
+                if(!isRecording){
+                    document.getElementById('recorderImg').src = '/static/microStop.png'
+                    startRecording();
+                    isRecording = true
+                }else{
+                    document.getElementById('recorderImg').src = '/static/micro.png'
+                    stopRecording(id)
+                    isRecording = false
+                }
+            }
             function startRecording(){
-                 navigator.getUserMedia({
-                    audio: true
-                }, onsuccess, (e) => {
-                    recorder = new MediaRecorder(stream, {
+                 navigator.mediaDevices.getUserMedia({ audio: true }).then(stream=> {
+                    streamAudio = stream
+                    recorder = new MediaRecorder(streamAudio, {
                         type: 'audio/ogg; codecs=opus'
                     });
-                    recorder.start(); // Starting the record
+                    recorder.start();
                 });
             }
-            function stopRecording(){
-                recorder.stop(); // Starting the record
-
+            function stopRecording(id){
+                recorder.stop();
                 recorder.ondataavailable = (e) => {
                     let reader = new FileReader()
                     reader.onloadend = () => {
-                        console.log("reader.result",reader.result);
+                        axios.post('/sendAudio',{idChat:id,data:reader.result})
+                        .then(function (response) {
+                            // handle success
+                            console.log(response.data);
+                        });
                     }
                     reader.readAsDataURL(e.data);
-                }
+                } 
+                recorder = null;
+                streamAudio.getTracks().forEach(track => track.stop());
             }
         </script>
         <meta charset='UTF-8'>
@@ -594,9 +750,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 </div>
             </div>
         </div>
-        <div id="overlay2" onclick="off('overlay2')">
-            <div id="text">Overlay Text 2 :D</div>
-        </div>
         {{ content | safe }}
     </body>
 </html>
@@ -704,9 +857,6 @@ MENU_FORM = '''
                             </span>
                             <span class="grid-item vcentered">
                                 <p style="font-size:14px;width:80%;float:left;">{nickname}</p>
-                                <button class="btn" style="float:left;" onclick="on('overlay2')">
-                                    <img src="https://image.flaticon.com/icons/svg/2567/2567326.svg" style="height:16px; width:16px;" alt="Error"/>
-                                </button>
                             </span>
                         </div>
                     </div>
@@ -787,10 +937,89 @@ async def startup():
 async def cleanup():
     await client.disconnect()
 
-@app.route('/test', methods=['POST'])
-async def test():
+@app.route('/sendDiceMessage', methods=['POST'])
+async def sendDiceMessage():
     data = await request.json
-    print("DATA",data)
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    sum, memory = diceThrow(data['data'])
+    await arrayClients[ip].send_message(int(data['idChat']), 'Sumatorio: '+str(sum)+'\nMemoria: ('+printMem(memory)+')', parse_mode='html')
+    return {'beta':'de mis tetas'}
+
+@app.route('/createToken', methods=['POST'])
+async def createTokenNormal():
+    data = await request.json 
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    tipo= data['data'].split('base64,')[0].split('data:')[1].split(';')[0]
+    fileData= data['data'].split('base64,')[1]
+    data = base64.b64decode(fileData)
+    me = await arrayClients[ip].get_me()
+    mongo = get_mongoDoc()
+    chatMongo = mongo.find_one({"idChat": str(idChat)})
+    if me.id == chatMongo['master']:
+        print("Im the master, bitch")
+        Path("static/groups/"+str(idChat)+"/master").mkdir(parents=True, exist_ok=True)
+        p = 'static/groups/'+str(idChat)+"/master/imgTokenPersonal."+tipo.split('/')[1]
+        tempFile = open(p,'wb')
+        tempFile.write(data)
+        tempFile.close()
+        h = chatMongo[str(me.id)]['color'].lstrip('#')
+        c = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        token = createToken(1000, c, 0.9, (255,255,255,255),0.8, p)
+        token.save('static/groups/'+str(idChat)+"/master/tokenPersonal."+tipo.split('/')[1])
+    else:
+        Path("static/groups/"+str(idChat)+"/"+str(me.id)).mkdir(parents=True, exist_ok=True)
+        p = 'static/groups/'+str(idChat)+"/master/token."+tipo.split('/')[1]
+        tempFile = open(p,'wb')
+        tempFile.write(data)
+        tempFile.close()
+        h = chatMongo[str(me.id)]['color']
+        c = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        token = createToken(600, c, 0.8, (255,255,255,255),0.9, p)
+    return {'beta':'de mis tetas'}
+
+
+@app.route('/sendImage', methods=['POST'])
+async def sendImage():
+    data = await request.json 
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    tipo= data['data'].split('base64,')[0].split('data:')[1].split(';')[0]
+    fileData= data['data'].split('base64,')[1]
+    data = base64.b64decode(fileData)
+    print(tipo.split('/')[0])
+    if tipo.split('/')[0] == 'video':
+        tempFile = open('auxVideos/'+str(idChat)+"."+tipo.split('/')[1],'wb')
+        tempFile.write(data)
+        tempFile.close()
+        await arrayClients[ip].send_file(idChat, 'auxVideos/'+str(idChat)+"."+tipo.split('/')[1])
+    elif tipo.split('/')[0] == 'image':
+        tempFile = open('auxImages/'+str(idChat)+"."+tipo.split('/')[1],'wb')
+        tempFile.write(data)
+        tempFile.close()
+        await arrayClients[ip].send_file(idChat, 'auxImages/'+str(idChat)+"."+tipo.split('/')[1])
+    return {'beta':'de mis tetas'}
+
+@app.route('/sendAudio', methods=['POST'])
+async def sendAudio():
+    data = await request.json 
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    data = data['data'].split('audio/webm;codecs=opus;base64,')[1]
+    data += "=" * ((4 - len(data) % 4) % 4)
+    audio = base64.b64decode(data)
+    tempFile = open('auxAudios/'+str(idChat)+".ogg",'wb')
+    tempFile.write(audio)
+    tempFile.close()
+    await arrayClients[ip].send_file(idChat, 'auxAudios/'+str(idChat)+".ogg", voice_note=True)
     return {'beta':'de mis tetas'}
 
 
@@ -846,8 +1075,9 @@ async def root():
         if 'post_method' in form:
             reload =  False
             if form['post_method'] == 'enviar_mensaje':
-                print(form.to_dict())
-                await arrayClients[ip].send_message(int(form['id']), form['TextToSend'])
+                if form['TextToSend'] is not '':
+                    print(form['TextToSend'])
+                    await arrayClients[ip].send_message(int(form['id']), form['TextToSend'])
                 reload = True
             if form['post_method'] == 'leer_grupo' or reload:
                 result = await arrayClients[ip].get_messages(int(form['id']),limit=40,reverse=False)
@@ -870,13 +1100,53 @@ async def root():
                     await arrayClients[ip].send_read_acknowledge(int(form['id']), message=mes2)
                     m=''
                     if mes['_'] == "Message":
+                        message = ''' <p style="padding:5px;font-size:14px;text-align: {align}; overflow-wrap: break-word;">{message}</p>'''.format(
+                            message=mes['message'].replace('\n','<br/>'),
+                            align='right' if mes['from_id'] == me.id else 'left')
+                        global modoSoloTexto
+                        if mes['media'] is not None and not modoSoloTexto:
+                            if mes['media']['_'] == 'MessageMediaPhoto':
+                                path = 'static/imgToFrontend/'+ str(mes['media']['photo']['id'])  +'.png'
+                                if not os.path.exists(path):
+                                    img = await arrayClients[ip].download_media(mes2, file=path)
+                                    message = '''<img style="width:80%;height:auto;" src={src} alt="Red dot" />'''.format(src = img)
+                                else:
+                                    message = '''<img style="width:80%;height:auto;" src={src} alt="Red dot" />'''.format(src = path)
+                            else:
+                                t = mes['media']['document']['mime_type']
+                                if 'audio' in t:
+                                    path = 'static/audToFrontend/'+ str(mes['media']['document']['id'])  +'.'+t.split('/')[1]
+                                    if not os.path.exists(path):
+                                        audio = await arrayClients[ip].download_media(mes2, file=path)
+                                        message = '''<audio controls="controls" autobuffer="autobuffer">
+                                            <source src={src} />
+                                        </audio>
+                                        '''.format(src = audio )
+                                    else:
+                                        message = '''<audio controls="controls" autobuffer="autobuffer">
+                                            <source src={src} />
+                                        </audio>
+                                        '''.format(src = path )
+                                if 'video' in t:
+                                    path = 'static/vidsToFrontend/'+ str(mes['media']['document']['id'])  +'.'+t.split('/')[1]
+                                    if not os.path.exists(path):
+                                        video = await arrayClients[ip].download_media(mes2, file=path )
+                                        message = '''<video  controls style="width:80%;height:auto;">
+                                            <source src={src} type={type} />
+                                        </video>
+                                        '''.format(src = video, type= 'video/'+ t.split('/')[1])
+                                    else:
+                                        message = '''<video  controls style="width:80%;height:auto;">
+                                            <source src={src} type={type} />
+                                        </video>
+                                        '''.format(src = path, type= 'video/'+ t.split('/')[1])
                         if mes['from_id'] == me.id :
                             m='''<div style="padding:2px;display:grid;grid-template-columns: calc(10%) calc(90%);" >
                                 <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 2 / 3;" >
-                                    <div class="grid-item-chat grid-container-message">
+                                    <div class="grid-item-chat-2 grid-container-message">
                                         <div class="grid-item-3 " style="margin:0px;">
                                             <p style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
-                                            <p style="padding:5px;font-size:14px;text-align: right; overflow-wrap: break-word;">{message}</p>
+                                           {message}
                                         </div>
                                         <div class="grid-item-3" style="padding:5px;">
                                             <img src={photo} style="height:45px;width:45px;" >
@@ -887,18 +1157,18 @@ async def root():
                                 photo = chatMongo [str(mes['from_id'])]['photo'],
                                 nickname =  chatMongo [str(mes['from_id'])]['nickname'],
                                 color =  chatMongo [str(mes['from_id'])]['color'],
-                                message = mes['message']
+                                message = message
                             )
                         else:
                             m='''<div style="padding:2px;display:grid;grid-template-columns: calc(90%) calc(10%);" >
                                 <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 1 / 2;" >
-                                    <div class="grid-item-chat grid-container-message">
-                                        <div class="grid-item-3 " style="margin:0px;">
-                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
-                                            <p style="padding:5px;font-size:14px;text-align: right; overflow-wrap: break-word;">{message}</p>
-                                        </div>
+                                    <div class="grid-item-chat grid-container-message-2">
                                         <div class="grid-item-3" style="padding:5px;">
                                             <img src={photo} style="height:45px;width:45px;" >
+                                        </div>
+                                        <div class="grid-item-3 " style="margin:0px;">
+                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: left;font-weight:bold;">{nickname}</p>
+                                           {message}
                                         </div>
                                     </div>
                                 </div>
@@ -906,37 +1176,172 @@ async def root():
                                 photo = chatMongo [str(mes['from_id'])]['photo'],
                                 nickname =  chatMongo [str(mes['from_id'])]['nickname'],
                                 color =  chatMongo [str(mes['from_id'])]['color'],
-                                message = mes['message']
+                                message = message
                             )
                     messages = messages+m
                 messages= messages+'''</div>
                 <div style='text-align:left;'>
+                    <div id='diceCalculator' onclick='onClickAwayDice(event)'>
+                        <div class="w3-card centered-white" style="text-align:center;">
+                            <div style="font-size:24px;margin:20px;">
+                                <select id="plusminusd4" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d4" id="d4" maxlength="2"  value="0"/>
+                                <label for="d4">&nbsp;&nbsp;&nbsp;&nbsp;d4</label>
+                                <br/>
+                                <select id="plusminusd6" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d6" id="d6" maxlength="2"  value="0"/>
+                                <label for="d6">&nbsp;&nbsp;&nbsp;&nbsp;d6</label>
+                                <br/>
+                                <select id="plusminusd8" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d8" id="d8" maxlength="2"  value="0"/>
+                                <label for="d8">&nbsp;&nbsp;&nbsp;&nbsp;d8</label>
+                                <br/>
+                                <select id="plusminusd10" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d10" id="d10" maxlength="2"  value="0"/>
+                                <label for="d10">&nbsp;&nbsp;d10</label>
+                                <br/>
+                                <select id="plusminusd12" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d12" id="d12" maxlength="2"  value="0"/>
+                                <label for="d12">&nbsp;&nbsp;d12</label>
+                                <br/>
+                                <select id="plusminusd20" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d20" id="d20" maxlength="2"  value="0"/>
+                                <label for="d20">&nbsp;&nbsp;d20</label>
+                                <br/>
+                                <select id="plusminusd100" value="+" >
+                                    <option>+</option>
+                                    <option>-</option>
+                                </select>
+                                <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="d100" id="d100" maxlength="2"  value="0"/>
+                                <label for="d100">d100</label>
+                                <br/>
+                                <div style="margin-top:15px;">
+                                    <select id="plusminuscustom" value="+" >
+                                        <option>+</option>
+                                        <option>-</option>
+                                    </select>
+                                    <input type="number" min="0" oninput="validity.valid||(value='0');" max="99"  name="dCustom" id="dCustom" maxlength="2"  value="0"/>
+                                    <label for="dCustom">
+                                        d<input type="number" min="0" oninput="validity.valid||(value='0');" max="999"  name="dCustomSize" id="dCustomSize" maxlength="3"  value="0"/>
+                                    </label>
+                                    <br/>
+                                    <label for="mod">Mod</label>
+                                    <input type="number" min="-999"  max="999"  name="mod" id="mod" maxlength="3"  value="0"/>
+                                </div>
+                                <button onclick="sendDiceMessage({id})" class="btn w3-btn w3-white" style="vertical-align: middle;">
+                                    Enviar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id='editPerfil' onclick='onClickAwayEditPerfil(event)'>
+                        <div class="w3-card centered-white" style="text-align:center;">
+                            <div style="font-size:24px;margin:20px;">
+                                <div id='foto de perfil'>
+                                    <p>Foto de perfil</p>
+                                    <label for="foto-perfil-edit">
+                                        <img id='moreImg' class="w3-btn btn w3-white" src={photo} style="width:150px;height:width:150px;">
+                                    </label>
+                                    <input name="foto-perfil-edit" id="foto-perfil-edit" type="file" style="display:none;"></input>
+                                </div>
+                                <div>
+                                    <p style="margin-top:20px;">Color asignado</p>
+                                    <input name="foto-perfil-color" id="foto-perfil-edit" type="color" value={color}></input>
+                                </div>
+                                <div>
+                                    <p style="margin-top:20px;">Nickname</p>
+                                    <input name="foto-perfil-color" id="foto-perfil-edit" value='{nickname}'></input>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <form id="sendAMessage" action="/" method="post">
                         <div class="grid-container-message-input">
+                            <div style="grid-column: 1 / 2;text-align:center;vertical-align: middle;">
+                                <img src={photo} style="height:auto;width:75%;" >
+                            </div>
                             <input name='id' value={id} style='display:none;'/>
                             <input name='post_method' value='enviar_mensaje' style='display:none;'/>
-                            <div style="grid-column: 1 / 2;">
-                                <textarea autofocus onkeypress="onTestChange();" style='font-size:16px;resize: none;' name="TextToSend" id="TextToSend" cols="60" rows="4"></textarea>
-                            </div>
-
                             <div style="grid-column: 2 / 3;">
-                                <button type="submit" class="btn btn-success w3-btn w3-white" style="width:30%;height:30%;">
-                                    <img  src="/static/send.png" style="width:100%;height:100%;">
-                                </button>
-                                <input type="file" accept="audio/*" capture="microphone" id="recorder">
+                                <textarea autofocus onkeypress="onTextChange();" style='font-size:16px;resize: none;width:100%' name="TextToSend" id="TextToSend" rows="4"></textarea>
                             </div>
-                            <audio id="player" controls></audio>
+                            <div style="grid-column: 3 / 4;">
+                                <div style="display: grid;grid-template-columns: 55% 45%;height:100%;">
+                                    <div style="text-align: center;vertical-align: middle;">
+                                         <button type="submit" class="btn btn-success w3-btn w3-white" style="width:100%;height:80%;vertical-align: middle;">
+                                            <img  src="/static/send.png" style="width:100%;height:auto%;">
+                                        </button>
+                                    </div>
+                                    <div style="text-align: center;vertical-align: middle;height:100%;">
+                                        <button    type="button" onclick='recorderController({id})' class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                            <img id='recorderImg'  src="/static/micro.png" style="width:100%;height:auto%;">
+                                        </button>
+                                        <div class="dropup" style=" position: relative;display: inline-block;">
+                                            <button   type="button" class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                                <img id='moreImg'  src="/static/More.png" style="width:100%;height:auto%;">
+                                            </button>
+                                            <div class="dropup-content w3-panel w3-white w3-round" style="margin:0px;" >
+                                                <div class="grid-container-submenu-sender">
+                                                    <div class="btnSubMenu1">
+                                                        <label for="file-upload">
+                                                            <img class="w3-btn btn w3-white" src="/static/sendFileToAChat.png" style="width:100%;height:auto%;">
+                                                        </label>
+                                                        <input name="send_image" id="file-upload" onchange="sendImage({id},this)" type="file" style="display:none;"></input>
+                                                    </div>
+                                                    <div class="btnSubMenu2">
+                                                        <button    type="button" onclick='on("diceCalculator")' class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                                            <img src="/static/diceCalculator.png" style="width:100%;height:auto%;">
+                                                        </button>
+                                                    </div>
+                                                    <div class="btnSubMenu3">
+                                                        <label for="file-upload3">
+                                                            <img id='moreImg' class="w3-btn btn w3-white" src="/static/CreateSheet.png" style="width:100%;height:auto%;">
+                                                        </label>
+                                                        <input name="send_image" id="file-upload3" onchange="createToken({id},this)" type="file" style="display:none;"></input>
+                                                    </div>
+                                                    <div class="btnSubMenu4">
+                                                        <button  type="button" onclick='on("editPerfil")' class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                                            <img src="/static/editUser.png" style="width:100%;height:auto%;">
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
                 </div>'''.format(
-                    id= form['id']
+                    id= form['id'],
+                    photo= chatMongo[str(me.id)]['photo'],
+                    color=  chatMongo[str(me.id)]['color'],
+                    nickname= chatMongo[str(me.id)]['nickname']
                 )
             elif form['post_method'] == 'crear_grupo':
                 f = form.to_dict()
                 res = [val for key, val in form.to_dict().items()
                        if 'amigo_n_' in key]
-                insertion = {'users': [me.id]}
+                insertion = {'users': [me.id], 'master':me.id}
                 insertion[str(me.id)] = {'color': f['mi_color'], 'nickname': f['mi_nickname']}
                 for i in res:
                     insertion[i] = {'color': f['amigo_color_'+i], 'nickname': f['amigo_nickname_'+i]}
@@ -1016,8 +1421,6 @@ async def root():
 
     return await render_template_string(BASE_TEMPLATE, content=CODE_FORM)
 
-    
-
 def createDefaultProfilePhoto (color, id, chatId):
     im = Image.open('default.png')
     im = im.convert('RGBA')
@@ -1034,10 +1437,6 @@ def get_mongoDoc():
     client = MongoClient(
         "mongodb+srv://Telerol:MONOPOLy3@teleroldb-jvhhg.mongodb.net/test?retryWrites=true&w=majority")["Telerol"]["chats"]
     return client
-
-@app.websocket('/example')
-async def example():
-    print('example')
 
 async def main():
     if modoONLINE == True:

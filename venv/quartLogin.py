@@ -12,6 +12,7 @@ from imgurpython import ImgurClient
 from PIL import Image
 from io import BytesIO
 import numpy as np
+from datetime import datetime
 from dice import diceThrow, printMem
 from imageF import createToken
 def get_env(name, message):
@@ -35,7 +36,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
             .dropup-content {
                 display: none;
-                position: absolute; 
+                position: absolute;
                 bottom: 30px;
                 width:375%;
                 height:125%
@@ -302,7 +303,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 display: inline-block;
                 border-bottom: 1px dotted black;
             }
-
             .tooltip .tooltiptext {
                 visibility: hidden;
                 width: 120px;
@@ -314,11 +314,9 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                 position: absolute;
                 z-index: 1;
             }
-
             .tooltip:hover .tooltiptext {
                 visibility: visible;
             }
-            
             input[type="color"] {
                 -webkit-appearance: none;
                 border: none;
@@ -353,7 +351,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
         </style>
         <script>
-            
             function post(path, params, method='post') {
                 const form = document.createElement('form');
                 form.method = method;
@@ -513,6 +510,50 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
         <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
         <script  type="text/javascript">
+        
+            function readURLPerfil(input) {
+                if (input.files && input.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        $('#foto-perfil-src').attr('src', e.target.result);
+                        $('#foto-perfil-edit').attr('value', e.target.result);
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+
+            function editProfile(id) {
+                if(document.getElementById("foto-perfil-edit").files[0]){
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        let data = {
+                            idChat:id,
+                            photo : e.target.result,
+                            color : document.getElementById("foto-perfil-edit-color").value,
+                            nickname : document.getElementById("foto-perfil-edit-nickname").value
+                        }
+                        console.log(data);
+                        axios.post('/editProfile',data)
+                                    .then(function (response) {
+                                        console.log(response.data);
+                                    });
+                    }
+                    reader.readAsDataURL(document.getElementById("foto-perfil-edit").files[0]);
+                }else{
+                     let data = {
+                            idChat:id,
+                            photo : '',
+                            color : document.getElementById("foto-perfil-edit-color").value,
+                            nickname : document.getElementById("foto-perfil-edit-nickname").value
+                        }
+                        console.log(data);
+                        axios.post('/editProfile',data)
+                                    .then(function (response) {
+                                        console.log(response.data);
+                                    });
+                }
+            }
+
             function readURL(input) {
                 if (input.files && input.files[0]) {
                     var reader = new FileReader();
@@ -522,7 +563,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     }
                     reader.readAsDataURL(input.files[0]);
                 }
-            }
+            } 
             function sendImage(id, input) {
                 console.log(id,input)
                 if (input.files && input.files[0]) {
@@ -555,6 +596,222 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     document.getElementById("sendAMessage").submit();
                 }
             }
+        </script>
+        <script type="text/javascript">
+            var charging = false;
+            setInterval(function(){
+                if( document.getElementById("idChatActual") ){
+                let idChat = document.getElementById("idChatActual").value;
+                let maxId = document.getElementById("idChatActualMaxId").value;
+                if(!charging){
+                    axios.post('/updater',{idChat, maxId})
+                        .then(function (response) {
+                            let res = response.data
+                            console.log(res);
+                            res['mongoDoc']['users'].forEach(user=>{
+                                let divsUser = document.getElementsByName('mes_from_'+String(user))
+                                let nicknameUser = document.getElementsByName('mes_from_'+String(user)+'_nickname')
+                                let photoUser = document.getElementsByName('mes_from_'+String(user)+'_photo')
+                                let profilePhoto = document.getElementById("photo_"+String(user)+"_textarea")
+                                console.log(profilePhoto)
+                                if(profilePhoto){
+                                    profilePhoto.src = res['mongoDoc'][String(user)]['photo']
+                                }
+                                divsUser.forEach((element,index)=>{
+                                    divsUser[index].style.border = "3px solid "+ res['mongoDoc'][String(user)]['color']
+                                    nicknameUser[index].innerHTML = res['mongoDoc'][String(user)]['nickname']
+                                    nicknameUser[index].style.color = res['mongoDoc'][String(user)]['color']
+                                    photoUser[index].src = res['mongoDoc'][String(user)]['photo']
+                                })
+                            });
+                            if(res['newData']){
+                                charging=true;
+                                console.log("Actualizando datos de lectura")
+                                res['messages'].forEach((elem,index)=>{
+                                    console.log(elem,index)
+                                    let newMes =  document.createElement("div");
+                                    newMes.style.padding= "2px";
+                                    newMes.style.display= "grid";
+                                    if(elem['mine']){
+                                        newMes.style.gridTemplateColumns = "calc(10%) calc(90%)";
+                                        let innerNewMessage =  document.createElement("div");
+                                        innerNewMessage.name = 'mes_from_'+String(elem['fromId']);
+                                        innerNewMessage.className = 'w3-round';
+                                        innerNewMessage.style.backgroundColor= 'white';
+                                        innerNewMessage.style.border= '3px solid '+res['mongoDoc'][String(elem['fromId'])]['color'];
+                                        innerNewMessage.style.gridColumn= ' 2 / 3 ';
+                                        
+                                        let inner2NewMessage =  document.createElement("div");
+                                        inner2NewMessage.className = 'grid-item-chat-2 grid-container-message';
+                                        
+
+                                        let innerNewMessageNicK =  document.createElement("div");
+                                        innerNewMessageNicK.className = 'grid-item-3';
+                                        innerNewMessageNicK.style.margin = '0px';
+                                        
+                                        //Generamos el nickname
+                                        
+                                        let nickname =  document.createElement("p");
+                                        nickname.name = 'mes_from_'+String(elem['fromId'])+'_nickname';
+                                        nickname.innerHTML = res['mongoDoc'][String(elem['fromId'])]['nickname']
+                                        nickname.style.paddingTop = '5px';
+                                        nickname.style.fontSize = '18px';
+                                        nickname.style.color = res['mongoDoc'][String(elem['fromId'])]['color'];
+                                        nickname.style.textAlign = 'right';
+                                        nickname.style.fontWeight = 'bold';
+                                        innerNewMessageNicK.appendChild(nickname)
+                                        
+                                        //Generamos el message
+
+                                        if(elem['type']=='image'){
+                                            console.log('generando imagen');
+                                            let image = document.createElement("img");
+                                            image.style.width='80%';
+                                            image.style.height='auto';
+                                            image.alt = "Red dot";
+                                            image.src = elem['src'];
+                                            innerNewMessageNicK.appendChild(image)
+                                        }else if(elem['type']=='audio'){
+                                            console.log('generando audio');
+                                            let au = document.createElement("audio");
+                                            au.controls = "controls";
+                                            au.autobuffer = "autobuffer";
+                                            let sr = document.createElement("source");
+                                            sr.src = elem['src'];
+                                            au.appendChild(sr);
+                                            innerNewMessageNicK.appendChild(au)
+                                        }else if(elem['type']=='video'){
+                                            console.log('generando video');
+                                            let vid = document.createElement("video");
+                                            vid.controls = "controls";
+                                            vid.style.width='80%';
+                                            vid.style.height='auto';
+                                            let sr = document.createElement("source");
+                                            sr.src = elem['src'];
+                                            sr.type = elem['videoType']
+                                            vid.appendChild(sr);
+                                            innerNewMessageNicK.appendChild(vid)
+                                        }else{
+                                            console.log('generando texto');
+                                            let txt = document.createElement("p");
+                                            txt.style.padding = "5px";
+                                            txt.style.fontSize= "14px";
+                                            txt.style.textAlign = elem['align'];
+                                            txt.style.overflowWrap = "break-word";
+                                            txt.innerHTML = elem['message'];
+                                            innerNewMessageNicK.appendChild(txt)
+                                        }
+                                        inner2NewMessage.appendChild(innerNewMessageNicK);
+                                        
+                                        let divProfilePhoto =  document.createElement("div");
+                                        divProfilePhoto.className = 'grid-item-3';
+                                        divProfilePhoto.style.padding = '5px';
+                                        let profileImg =  document.createElement("img");
+                                        profileImg.style.height = '45px';
+                                        profileImg.style.width = '45px';
+                                        profileImg.name = "mes_from_"+String(elem['fromId']) +"_photo";
+                                        profileImg.src = res['mongoDoc'][String(elem['fromId'])]['photo'];
+                                        divProfilePhoto.appendChild(profileImg);
+                                        inner2NewMessage.appendChild(divProfilePhoto);
+                                        innerNewMessage.appendChild(inner2NewMessage);
+                                        newMes.appendChild(innerNewMessage);
+                                    }else{
+                                        newMes.style.gridTemplateColumns = "calc(90%) calc(10%)";
+                                        let innerNewMessage =  document.createElement("div");
+                                        innerNewMessage.name = 'mes_from_'+String(elem['fromId']);
+                                        innerNewMessage.className = 'w3-round';
+                                        innerNewMessage.style.backgroundColor= 'white';
+                                        innerNewMessage.style.border= '3px solid '+res['mongoDoc'][String(elem['fromId'])]['color'];
+                                        innerNewMessage.style.gridColumn= ' 1 / 2 ';
+                                        
+                                        let inner2NewMessage =  document.createElement("div");
+                                        inner2NewMessage.className = 'grid-item-chat grid-container-message-2';
+                                        
+                                        let divProfilePhoto =  document.createElement("div");
+                                        divProfilePhoto.className = 'grid-item-3';
+                                        divProfilePhoto.style.padding = '5px';
+                                        let profileImg =  document.createElement("img");
+                                        profileImg.style.height = '45px';
+                                        profileImg.style.width = '45px';
+                                        profileImg.name = "mes_from_"+String(elem['fromId']) +"_photo";
+                                        profileImg.src = res['mongoDoc'][String(elem['fromId'])]['photo'];
+                                        divProfilePhoto.appendChild(profileImg);
+                                        inner2NewMessage.appendChild(divProfilePhoto);
+
+                                        let innerNewMessageNicK =  document.createElement("div");
+                                        innerNewMessageNicK.className = 'grid-item-3';
+                                        innerNewMessageNicK.style.margin = '0px';
+                                        
+                                        //Generamos el nickname
+                                        
+                                        let nickname =  document.createElement("p");
+                                        nickname.name = 'mes_from_'+String(elem['fromId'])+'_nickname';
+                                        nickname.innerHTML = res['mongoDoc'][String(elem['fromId'])]['nickname']
+                                        nickname.style.paddingTop = '5px';
+                                        nickname.style.fontSize = '18px';
+                                        nickname.style.color = res['mongoDoc'][String(elem['fromId'])]['color'];
+                                        nickname.style.textAlign = 'left';
+                                        nickname.style.fontWeight = 'bold';
+                                        innerNewMessageNicK.appendChild(nickname)
+                                        
+                                        //Generamos el message
+
+                                        if(elem['type']=='image'){
+                                            console.log('generando imagen');
+                                            let image = document.createElement("img");
+                                            image.style.width='80%';
+                                            image.style.height='auto';
+                                            image.alt = "Red dot";
+                                            image.src = elem['src'];
+                                            innerNewMessageNicK.appendChild(image)
+                                        }else if(elem['type']=='audio'){
+                                            console.log('generando audio');
+                                            let au = document.createElement("audio");
+                                            au.controls = "controls";
+                                            au.autobuffer = "autobuffer";
+                                            let sr = document.createElement("source");
+                                            sr.src = elem['src'];
+                                            au.appendChild(sr);
+                                            innerNewMessageNicK.appendChild(au)
+                                        }else if(elem['type']=='video'){
+                                            console.log('generando video');
+                                            let vid = document.createElement("video");
+                                            vid.controls = "controls";
+                                            vid.style.width='80%';
+                                            vid.style.height='auto';
+                                            let sr = document.createElement("source");
+                                            sr.src = elem['src'];
+                                            sr.type = elem['videoType']
+                                            vid.appendChild(sr);
+                                            innerNewMessageNicK.appendChild(vid)
+                                        }else{
+                                            console.log('generando texto');
+                                            let txt = document.createElement("p");
+                                            txt.style.padding = "5px";
+                                            txt.style.fontSize= "14px";
+                                            txt.style.textAlign = elem['align'];
+                                            txt.style.overflowWrap = "break-word";
+                                            txt.innerHTML = elem['message'];
+                                            innerNewMessageNicK.appendChild(txt)
+                                        }
+                                        inner2NewMessage.appendChild(innerNewMessageNicK);
+                                        
+                                        
+                                        innerNewMessage.appendChild(inner2NewMessage);
+                                        newMes.appendChild(innerNewMessage);
+                                    }
+                                    let chats = document.getElementById('messages_chat_group_limit')
+                                    chats.insertBefore(newMes, chats.firstChild);
+                                })
+                                charging=false;
+                            }
+                            document.getElementById("idChatActual").value = String(res['idChat']);
+                            document.getElementById("idChatActualMaxId").value = String(res['maxId']);
+                        });
+
+                }
+            }
+            }, 4000);
         </script>
         <script type="text/javascript">
             let recorder = null;
@@ -593,7 +850,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                         });
                     }
                     reader.readAsDataURL(e.data);
-                } 
+                }
                 recorder = null;
                 streamAudio.getTracks().forEach(track => track.stop());
             }
@@ -931,11 +1188,116 @@ async def format_message(message):
 async def startup():
     await client.connect()
 
-
 # After we're done serving (near shutdown), clean up the client
 @app.after_serving
 async def cleanup():
     await client.disconnect()
+
+@app.route('/updater', methods=['POST'])
+async def updater():
+    data = await request.json
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    me = await arrayClients[ip].get_me()
+    idChat = int(data['idChat'])
+    minId = int(data['maxId'])
+    messages = []
+    res ={'maxId':data['maxId']}
+    i = -1
+    newData=False
+    result = await arrayClients[ip].get_messages(idChat, min_id=minId, reverse=False)
+    for mes2 in result:
+        newData = True
+        messages.append({})
+        i = i+1
+        mes = mes2.to_dict()
+        if mes['id']>int(data['maxId']):
+            res['maxId'] = str(mes['id'])
+        if mes['_'] == "Message":
+            messages[i] = {
+                'message':mes['message'].replace('\n','<br/>'),
+                'align':'right' if mes['from_id'] == me.id else 'left',
+                'type':'text',
+                'mine':  mes['from_id'] == me.id,
+                'fromId':mes['from_id']
+                }
+            global modoSoloTexto
+            if mes['media'] is not None and not modoSoloTexto:
+                if mes['media']['_'] == 'MessageMediaPhoto':
+                    path = 'static/imgToFrontend/'+ str(mes['media']['photo']['id'])  +'.png'
+                    if not os.path.exists(path):
+                       img = await arrayClients[ip].download_media(mes2, file=path)
+                       messages[i]={
+                           'type':'image',
+                           'src': img,
+                           'mine':  mes['from_id'] == me.id,
+                           'fromId':mes['from_id']
+                           }
+                    else:
+                        messages[i]={
+                           'type':'image',
+                           'src': path,
+                           'mine':  mes['from_id'] == me.id,
+                            'fromId':mes['from_id']
+                           }
+                else:
+                    t = mes['media']['document']['mime_type']
+                    if 'audio' in t:
+                        path = 'static/audToFrontend/'+ str(mes['media']['document']['id'])  +'.'+t.split('/')[1]
+                        if not os.path.exists(path):
+                            audio = await arrayClients[ip].download_media(mes2, file=path)
+                            messages[i]={
+                            'type':'audio',
+                            'src': audio,
+                            'mine':  mes['from_id'] == me.id,
+                            'fromId':mes['from_id']
+                            }
+                        else:
+                            messages[i]={
+                            'type':'audio',
+                            'src': path,
+                            'mine':  mes['from_id'] == me.id,
+                            'fromId':mes['from_id']
+                            }
+                    if 'video' in t:
+                        path = 'static/vidsToFrontend/'+ str(mes['media']['document']['id'])  +'.'+t.split('/')[1]
+                        if not os.path.exists(path):
+                            video = await arrayClients[ip].download_media(mes2, file=path )
+                            messages[i]={
+                            'type':'video',
+                            'videoType':'video/'+ t.split('/')[1],
+                            'src': video,
+                            'mine':  mes['from_id'] == me.id,
+                            'fromId':mes['from_id']
+                            }
+                        else:
+                            messages[i]={
+                            'type':'video',
+                            'videoType':'video/'+ t.split('/')[1],
+                            'src': path,
+                            'mine':  mes['from_id'] == me.id,
+                            'fromId':mes['from_id']
+                            }
+    res['messages'] = messages
+    res['idChat'] = idChat
+    res['myId'] = str(me.id)
+    m = get_mongoDoc()
+    mongo = m.find_one({'idChat':str(idChat)})
+    mongo.pop('_id',None)
+    res['mongoDoc'] = mongo
+    res['newData'] = newData
+    res['notificationsChat']=[]
+    for dialog in await arrayClients[ip].get_dialogs():
+        chatMongo = m.find_one({"idChat": str(dialog.entity.id)})
+        if chatMongo is not None:
+            dia ='inline-block' if dialog.unread_count>0 else 'none'
+            res['notificationsChat'].append({
+                'id':"notificaciones_"+str(dialog.entity.id),
+                'not': str(dialog.unread_count),
+                'display':dia
+                })
+    return jsonify(res)
 
 @app.route('/sendDiceMessage', methods=['POST'])
 async def sendDiceMessage():
@@ -982,7 +1344,40 @@ async def createTokenNormal():
         token = createToken(600, c, 0.8, (255,255,255,255),0.9, p)
     return {'beta':'de mis tetas'}
 
-
+@app.route('/editProfile', methods=['POST'])
+async def editProfile():
+    data = await request.json 
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    dateTimeObj = datetime.now()
+    timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H-%M-%S-%f")
+    if data['photo'] is not '':
+        tipo= data['photo'].split('base64,')[0].split('data:')[1].split(';')[0]
+        fileData= data['photo'].split('base64,')[1]
+        data = base64.b64decode(fileData)
+        me = await arrayClients[ip].get_me()
+        me = me.id
+        path = 'static/groups/'+str(idChat)+"/"+str(me)+timestampStr+"."+tipo.split('/')[1]
+        tempFile = open(path,'wb')
+        tempFile.write(data)
+        tempFile.close()
+        info= await request.json
+        mongoChat = get_mongoDoc()
+        chatMongo = mongoChat.find_one({"idChat": str(info['idChat'])})
+        chatMongo[str(me)]={'photo':path, 'nickname':info['nickname'], 'color':info['color']}
+        mongoChat.replace_one({"idChat": str(idChat)}, chatMongo)
+    else:
+        info= await request.json
+        mongoChat = get_mongoDoc()
+        me = await arrayClients[ip].get_me()
+        me = me.id
+        chatMongo = mongoChat.find_one({"idChat": str(info['idChat'])})
+        chatMongo[str(me)]={'photo':chatMongo[str(me)]['photo'], 'nickname':info['nickname'], 'color':info['color']}
+        mongoChat.replace_one({"idChat": str(idChat)}, chatMongo)
+    return {'beta':'de mis tetas'}
+    
 @app.route('/sendImage', methods=['POST'])
 async def sendImage():
     data = await request.json 
@@ -1035,10 +1430,6 @@ async def disconnect():
     return redirect('/')
 
 
-
-async def updater(event):
-    print(event.message.message)
-
 @app.route('/', methods=['GET', 'POST'])
 async def root():
     ip = request.remote_addr
@@ -1053,9 +1444,6 @@ async def root():
     if request.method == 'GET':
         for callback in arrayClients[ip].list_event_handlers():
             name = str(str(callback[0]).split(' at 0x')[0]).split('function ')[1]
-            if name is not 'updater':
-                arrayClients[ip].add_event_handler(updater, events.NewMessage)
-                break
     if 'phone' in form:
         arrayClients[ip+'telf'] = form['phone']
         await arrayClients[ip].send_code_request(arrayClients[ip+'telf'])
@@ -1090,15 +1478,18 @@ async def root():
                                 <input type='button' class='w3-btn w3-white' style="font-size:20px;" value={name}>
                             </div>
                         </div>
-                        <div style="height:78%;overflow-y: scroll;display: flex;flex-direction: column-reverse; border-bottom:2px solid black;">
+                        <div id='messages_chat_group_limit' style="height:78%;overflow-y: scroll;display: flex;flex-direction: column-reverse; border-bottom:2px solid black;">
                         '''.format(
                             photo= chatMongo['fotoGrupo'],
                             name=chat.title
                         )
+                maxid = 0
                 for mes2 in result:
                     mes = mes2.to_dict()
                     await arrayClients[ip].send_read_acknowledge(int(form['id']), message=mes2)
                     m=''
+                    if mes['id']>maxid:
+                        maxid = mes['id']
                     if mes['_'] == "Message":
                         message = ''' <p style="padding:5px;font-size:14px;text-align: {align}; overflow-wrap: break-word;">{message}</p>'''.format(
                             message=mes['message'].replace('\n','<br/>'),
@@ -1142,14 +1533,14 @@ async def root():
                                         '''.format(src = path, type= 'video/'+ t.split('/')[1])
                         if mes['from_id'] == me.id :
                             m='''<div style="padding:2px;display:grid;grid-template-columns: calc(10%) calc(90%);" >
-                                <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 2 / 3;" >
+                                <div name='mes_from_{fromID}' class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 2 / 3;" >
                                     <div class="grid-item-chat-2 grid-container-message">
                                         <div class="grid-item-3 " style="margin:0px;">
-                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
+                                            <p name='mes_from_{fromID}_nickname' style="padding-top:5px;font-size:18px;color:{color};text-align: right;font-weight:bold;">{nickname}</p>
                                            {message}
                                         </div>
                                         <div class="grid-item-3" style="padding:5px;">
-                                            <img src={photo} style="height:45px;width:45px;" >
+                                            <img name='mes_from_{fromID}_photo' src={photo} style="height:45px;width:45px;" >
                                         </div>
                                     </div>
                                 </div>
@@ -1157,17 +1548,18 @@ async def root():
                                 photo = chatMongo [str(mes['from_id'])]['photo'],
                                 nickname =  chatMongo [str(mes['from_id'])]['nickname'],
                                 color =  chatMongo [str(mes['from_id'])]['color'],
-                                message = message
+                                message = message,
+                                fromID = mes['from_id']
                             )
                         else:
                             m='''<div style="padding:2px;display:grid;grid-template-columns: calc(90%) calc(10%);" >
-                                <div class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 1 / 2;" >
+                                <div name='mes_from_{fromID}' class="w3-round" style="background-color:white; border: 3px solid {color}; grid-column: 1 / 2;" >
                                     <div class="grid-item-chat grid-container-message-2">
                                         <div class="grid-item-3" style="padding:5px;">
-                                            <img src={photo} style="height:45px;width:45px;" >
+                                            <img name='mes_from_{fromID}_photo' src={photo} style="height:45px;width:45px;" >
                                         </div>
                                         <div class="grid-item-3 " style="margin:0px;">
-                                            <p style="padding-top:5px;font-size:18px;color:{color};text-align: left;font-weight:bold;">{nickname}</p>
+                                            <p name='mes_from_{fromID}_nickname' style="padding-top:5px;font-size:18px;color:{color};text-align: left;font-weight:bold;">{nickname}</p>
                                            {message}
                                         </div>
                                     </div>
@@ -1176,7 +1568,8 @@ async def root():
                                 photo = chatMongo [str(mes['from_id'])]['photo'],
                                 nickname =  chatMongo [str(mes['from_id'])]['nickname'],
                                 color =  chatMongo [str(mes['from_id'])]['color'],
-                                message = message
+                                message = message,
+                                fromID = mes['from_id']
                             )
                     messages = messages+m
                 messages= messages+'''</div>
@@ -1258,17 +1651,22 @@ async def root():
                                 <div id='foto de perfil'>
                                     <p>Foto de perfil</p>
                                     <label for="foto-perfil-edit">
-                                        <img id='moreImg' class="w3-btn btn w3-white" src={photo} style="width:150px;height:width:150px;">
+                                        <img id='foto-perfil-src' class="w3-btn btn w3-white" src={photo} style="width:150px;height:width:150px;">
                                     </label>
-                                    <input name="foto-perfil-edit" id="foto-perfil-edit" type="file" style="display:none;"></input>
+                                    <input name="foto-perfil-edit" onchange="readURLPerfil(this)" id="foto-perfil-edit" type="file" style="display:none;"></input>
                                 </div>
                                 <div>
                                     <p style="margin-top:20px;">Color asignado</p>
-                                    <input name="foto-perfil-color" id="foto-perfil-edit" type="color" value={color}></input>
+                                    <input name="foto-perfil-color" id="foto-perfil-edit-color" type="color" value={color}></input>
                                 </div>
                                 <div>
                                     <p style="margin-top:20px;">Nickname</p>
-                                    <input name="foto-perfil-color" id="foto-perfil-edit" value='{nickname}'></input>
+                                    <input name="foto-perfil-edit-nickname" id="foto-perfil-edit-nickname" value='{nickname}'></input>
+                                </div>
+                                <div>
+                                    <button onclick="editProfile({id})" class="btn w3-btn w3-white" style="vertical-align: middle;">
+                                        Enviar
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1276,9 +1674,10 @@ async def root():
                     <form id="sendAMessage" action="/" method="post">
                         <div class="grid-container-message-input">
                             <div style="grid-column: 1 / 2;text-align:center;vertical-align: middle;">
-                                <img src={photo} style="height:auto;width:75%;" >
+                                <img id="photo_{meId}_textarea" src={photo} style="height:auto;width:75%;" >
                             </div>
-                            <input name='id' value={id} style='display:none;'/>
+                            <input name='id' id='idChatActual' value={id} style='display:none;'/>
+                            <input name='max-id' id='idChatActualMaxId' value={maxId} style='display:none;'/>
                             <input name='post_method' value='enviar_mensaje' style='display:none;'/>
                             <div style="grid-column: 2 / 3;">
                                 <textarea autofocus onkeypress="onTextChange();" style='font-size:16px;resize: none;width:100%' name="TextToSend" id="TextToSend" rows="4"></textarea>
@@ -1333,9 +1732,11 @@ async def root():
                 </div>
                 </div>'''.format(
                     id= form['id'],
+                    maxId = maxid,
                     photo= chatMongo[str(me.id)]['photo'],
                     color=  chatMongo[str(me.id)]['color'],
-                    nickname= chatMongo[str(me.id)]['nickname']
+                    nickname= chatMongo[str(me.id)]['nickname'],
+                    meId = me.id
                 )
             elif form['post_method'] == 'crear_grupo':
                 f = form.to_dict()
@@ -1396,7 +1797,7 @@ async def root():
                                         <span class="grid-item vcentered">
                                             <div style="display: grid;grid-template-columns: calc(88%) calc(12%); overflow:hidden;">
                                                 <span title="{name}" ><p style="font-size:16px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">{name}</p></span>
-                                                <p style="font-size:13px;color:white;background-color:lightblue; display: {style};">{notifications}</p>
+                                                <p id="notificaciones_{id}" style="font-size:13px;color:white;background-color:lightblue; display: {style};">{notifications}</p>
                                             </div>
                                             <p style="font-size:12px;color:grey;">Nick: {nickname}</p>
                                         </span>
@@ -1445,6 +1846,7 @@ async def main():
         config.bind = ["192.168.1.39:5000"]
         await hypercorn.asyncio.serve(app, config)
     else:
+        config = Config()
         await hypercorn.asyncio.serve(app, hypercorn.Config())
 
 if __name__ == '__main__':

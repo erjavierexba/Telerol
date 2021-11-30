@@ -351,6 +351,11 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
             }
         </style>
         <script>
+            function changeBG (newUrl , id){
+                document.getElementById('grid-parent-matrix').style.backgroundImage = "url("+newUrl+")";
+                document.getElementById('grid-parent-matrix').style.backgroundSize = "100% 100%";
+                axios.post('/changeBGSelected',{idChat:id,newURL:newUrl})
+            }
             function post(path, params, method='post') {
                 const form = document.createElement('form');
                 form.method = method;
@@ -577,6 +582,32 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     reader.readAsDataURL(input.files[0]);
                 }
             }
+            function createMasterToken(id, input) {
+                if (input.files && input.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        let color= document.getElementById('color-new-token').value
+                        console.log(color)
+                        axios.post('/createMasterToken',{idChat:id, color: color,data:reader.result})
+                            .then(function (response) {
+                                console.log(response.data);
+                            });
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+            function createMasterMap(id, input) {
+                if (input.files && input.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        axios.post('/createMasterMap',{idChat:id, data:reader.result })
+                            .then(function (response) {
+                                console.log(response.data);
+                            });
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
             function createToken(id, input) {
                 console.log(id,input)
                 if (input.files && input.files[0]) {
@@ -596,6 +627,19 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     document.getElementById("sendAMessage").submit();
                 }
             }
+            function allowDrop(ev) {
+                ev.preventDefault();
+            }
+
+            function drag(ev) {
+                ev.dataTransfer.setData("text", ev.target.id);
+            }
+
+            function drop(ev) {
+                ev.preventDefault();
+                var data = ev.dataTransfer.getData("text");
+                ev.target.appendChild(document.getElementById(data));
+            }
         </script>
         <script type="text/javascript">
             var charging = false;
@@ -607,13 +651,11 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     axios.post('/updater',{idChat, maxId})
                         .then(function (response) {
                             let res = response.data
-                            console.log(res);
                             res['mongoDoc']['users'].forEach(user=>{
                                 let divsUser = document.getElementsByName('mes_from_'+String(user))
                                 let nicknameUser = document.getElementsByName('mes_from_'+String(user)+'_nickname')
                                 let photoUser = document.getElementsByName('mes_from_'+String(user)+'_photo')
                                 let profilePhoto = document.getElementById("photo_"+String(user)+"_textarea")
-                                console.log(profilePhoto)
                                 if(profilePhoto){
                                     profilePhoto.src = res['mongoDoc'][String(user)]['photo']
                                 }
@@ -628,7 +670,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                 charging=true;
                                 console.log("Actualizando datos de lectura")
                                 res['messages'].forEach((elem,index)=>{
-                                    console.log(elem,index)
                                     let newMes =  document.createElement("div");
                                     newMes.style.padding= "2px";
                                     newMes.style.display= "grid";
@@ -662,7 +703,6 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                                         innerNewMessageNicK.appendChild(nickname)
                                         
                                         //Generamos el message
-
                                         if(elem['type']=='image'){
                                             console.log('generando imagen');
                                             let image = document.createElement("img");
@@ -1131,20 +1171,7 @@ MENU_FORM = '''
     </div>
     <div class="grid-item-menu" style="padding:10px;">
         <div class="w3-panel w3-white w3-round-xlarge max-height">
-            <div class="grid-container-col3" style="padding:5px;">
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-                <div class="grid-item" style="padding:5px;background-color: lightblue;">
-
-                </div>
-            </div>
+            {photosChat}
         </div>
     </div>
 </div>
@@ -1307,7 +1334,24 @@ async def sendDiceMessage():
     global arrayClients
     sum, memory = diceThrow(data['data'])
     await arrayClients[ip].send_message(int(data['idChat']), 'Sumatorio: '+str(sum)+'\nMemoria: ('+printMem(memory)+')', parse_mode='html')
-    return {'beta':'de mis tetas'}
+    return {'codigo':'200'}
+
+
+
+@app.route('/changeBGSelected', methods=['POST'])
+async def changeBGSelected():
+    data = await request.json
+    idChat = int(data['idChat'])
+    mongo = get_mongoDoc()
+    chatMongo = mongo.find_one({"idChat": str(idChat)})
+    for index,item in enumerate(chatMongo['maps']):
+        print(index, item , data['newURL'], item['path'] == data['newURL'])
+        if item['path'] == data['newURL']:
+            chatMongo['maps'][index]['selected'] = True
+        else:
+            chatMongo['maps'][index]['selected'] = False
+    mongo.replace_one({"idChat": str(idChat)}, chatMongo)
+    return {'codigo':'200'}
 
 @app.route('/createToken', methods=['POST'])
 async def createTokenNormal():
@@ -1322,27 +1366,67 @@ async def createTokenNormal():
     me = await arrayClients[ip].get_me()
     mongo = get_mongoDoc()
     chatMongo = mongo.find_one({"idChat": str(idChat)})
+    dateTimeObj = datetime.now()
+    timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H-%M-%S-%f")
     if me.id == chatMongo['master']:
-        print("Im the master, bitch")
         Path("static/groups/"+str(idChat)+"/master").mkdir(parents=True, exist_ok=True)
-        p = 'static/groups/'+str(idChat)+"/master/imgTokenPersonal."+tipo.split('/')[1]
+        p = 'static/groups/'+str(idChat)+"/master/imgTokenPersonal-timestampStr."+tipo.split('/')[1]
         tempFile = open(p,'wb')
         tempFile.write(data)
         tempFile.close()
         h = chatMongo[str(me.id)]['color'].lstrip('#')
         c = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
         token = createToken(1000, c, 0.9, (255,255,255,255),0.8, p)
-        token.save('static/groups/'+str(idChat)+"/master/tokenPersonal."+tipo.split('/')[1])
+        token.save('static/groups/'+str(idChat)+"/master/tokenPersonal-"+timestampStr+"."+tipo.split('/')[1])
+        if 'tokens' in chatMongo:
+            chatMongo['tokens'].append({
+                'path':'static/groups/'+str(idChat)+"/master/tokenPersonal-"+timestampStr+"."+tipo.split('/')[1],
+                'placed':False,
+                'position':{'x':0,'y':0},
+                'owner': me.id,
+                'general':False
+            })
+        else:
+            chatMongo['tokens']= [{
+                'path':'static/groups/'+str(idChat)+"/master/tokenPersonal-"+timestampStr+"."+tipo.split('/')[1],
+                'placed':False,
+                'position':{'x':0,'y':0},
+                'owner': me.id,
+                'general':False
+            }]
+        mongo.replace_one({"idChat": str(idChat)}, chatMongo)
     else:
         Path("static/groups/"+str(idChat)+"/"+str(me.id)).mkdir(parents=True, exist_ok=True)
-        p = 'static/groups/'+str(idChat)+"/master/token."+tipo.split('/')[1]
+        p = 'static/groups/'+str(idChat)+"/"+str(me.id)+"/token"+timestampStr+"."+tipo.split('/')[1]
         tempFile = open(p,'wb')
         tempFile.write(data)
         tempFile.close()
         h = chatMongo[str(me.id)]['color']
         c = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
         token = createToken(600, c, 0.8, (255,255,255,255),0.9, p)
-    return {'beta':'de mis tetas'}
+        token.save(p)
+        if 'tokens' in chatMongo :
+            tok = chatMongo['tokens']
+            for index,item in enumerate(tok):
+                if item['owner'] == me.id:
+                    chatMongo['tokens'].pop(index)
+            chatMongo['tokens'].append({
+                'path':p,
+                'placed':False,
+                'position':{'x':0,'y':0},
+                'owner': me.id,
+                'general':False
+            })
+        else:
+            chatMongo['tokens']= [{
+                'path':p,
+                'placed':False,
+                'position':{'x':0,'y':0},
+                'owner': me.id,
+                'general':False
+            }]
+        mongo.replace_one({"idChat": str(idChat)}, chatMongo)
+    return {'codigo':'200'}
 
 @app.route('/editProfile', methods=['POST'])
 async def editProfile():
@@ -1376,7 +1460,7 @@ async def editProfile():
         chatMongo = mongoChat.find_one({"idChat": str(info['idChat'])})
         chatMongo[str(me)]={'photo':chatMongo[str(me)]['photo'], 'nickname':info['nickname'], 'color':info['color']}
         mongoChat.replace_one({"idChat": str(idChat)}, chatMongo)
-    return {'beta':'de mis tetas'}
+    return {'codigo':'200'}
     
 @app.route('/sendImage', methods=['POST'])
 async def sendImage():
@@ -1399,7 +1483,86 @@ async def sendImage():
         tempFile.write(data)
         tempFile.close()
         await arrayClients[ip].send_file(idChat, 'auxImages/'+str(idChat)+"."+tipo.split('/')[1])
-    return {'beta':'de mis tetas'}
+    return {'codigo':'200'}
+
+@app.route('/createMasterToken', methods=['POST'])
+async def createMasterToken():
+    data = await request.json 
+    color = data['color']
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    tipo= data['data'].split('base64,')[0].split('data:')[1].split(';')[0]
+    fileData= data['data'].split('base64,')[1]
+    data = base64.b64decode(fileData)
+    me = await arrayClients[ip].get_me()
+    p = 'auxImages/'+str(idChat)+"."+tipo.split('/')[1]
+    tempFile = open(p,'wb')
+    tempFile.write(data)
+    tempFile.close()
+    h = color.lstrip('#')
+    c = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+    print("color ",c)
+    token = createToken(1000, c, 0.9, (255,255,255,255),0.8, p)
+    dateTimeObj = datetime.now()
+    timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H-%M-%S-%f")
+    mongo = get_mongoDoc()
+    chatMongo = mongo.find_one({"idChat": str(idChat)})
+    Path("static/groups/"+str(idChat)+"/master").mkdir(parents=True, exist_ok=True)
+    token.save("static/groups/"+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1])
+    if 'tokens' in chatMongo:
+        chatMongo['tokens'].append({
+            'path':'static/groups/'+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1],
+            'placed':False,
+            'position':{'x':0,'y':0},
+            'owner': me.id,
+            'general':False
+        })
+    else:
+        chatMongo['tokens']= [{
+            'path':'static/groups/'+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1],
+            'placed':False,
+            'position':{'x':0,'y':0},
+            'owner': me.id,
+            'general':False
+        }]
+    mongo.replace_one({"idChat": str(idChat)}, chatMongo)
+    return {'codigo':'200'}
+
+@app.route('/createMasterMap', methods=['POST'])
+async def createMasterMap():
+    data = await request.json 
+    ip = request.remote_addr
+    ip = ip.replace('.', '_')
+    global arrayClients
+    idChat = int(data['idChat'])
+    tipo= data['data'].split('base64,')[0].split('data:')[1].split(';')[0]
+    fileData= data['data'].split('base64,')[1]
+    data = base64.b64decode(fileData)
+    me = await arrayClients[ip].get_me()
+    print("aqui llega al menos")
+    dateTimeObj = datetime.now()
+    timestampStr = dateTimeObj.strftime("%d-%b-%Y-%H-%M-%S-%f")
+    Path("static/groups/"+str(idChat)+"/master").mkdir(parents=True, exist_ok=True)
+    p = "static/groups/"+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1]
+    tempFile = open(p,'wb')
+    tempFile.write(data)
+    tempFile.close()
+    mongo = get_mongoDoc()
+    chatMongo = mongo.find_one({"idChat": str(idChat)})
+    if 'maps' in chatMongo:
+        chatMongo['maps'].append({
+            'path':'static/groups/'+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1],
+            'selected':False
+        })
+    else:
+        chatMongo['maps']= [{
+            'path':'static/groups/'+str(idChat)+"/master/"+timestampStr+"."+tipo.split('/')[1],
+            'selected':False
+        }]
+    mongo.replace_one({"idChat": str(idChat)}, chatMongo)
+    return {'codigo':'200'}
 
 @app.route('/sendAudio', methods=['POST'])
 async def sendAudio():
@@ -1415,7 +1578,7 @@ async def sendAudio():
     tempFile.write(audio)
     tempFile.close()
     await arrayClients[ip].send_file(idChat, 'auxAudios/'+str(idChat)+".ogg", voice_note=True)
-    return {'beta':'de mis tetas'}
+    return {'codigo':'200'}
 
 
 
@@ -1453,6 +1616,7 @@ async def root():
         me = await arrayClients[ip].get_me()
         ch = ''
         mongo = get_mongoDoc()
+        photosChat=''''''
         amigos = ''''''
         messages= '''
                 <div style="background-color:white;width:100%;height:100%;">
@@ -1706,7 +1870,7 @@ async def root():
                                                         <input name="send_image" id="file-upload" onchange="sendImage({id},this)" type="file" style="display:none;"></input>
                                                     </div>
                                                     <div class="btnSubMenu2">
-                                                        <button    type="button" onclick='on("diceCalculator")' class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                                        <button    type="button" onclick='on("diceCalculator")' class="btn w3-btn w3-white" style="width:100%;height:auto%;vertical-align: middle;">
                                                             <img src="/static/diceCalculator.png" style="width:100%;height:auto%;">
                                                         </button>
                                                     </div>
@@ -1717,7 +1881,7 @@ async def root():
                                                         <input name="send_image" id="file-upload3" onchange="createToken({id},this)" type="file" style="display:none;"></input>
                                                     </div>
                                                     <div class="btnSubMenu4">
-                                                        <button  type="button" onclick='on("editPerfil")' class="btn w3-btn w3-white" style="width:100%;height:40%;vertical-align: middle;">
+                                                        <button  type="button" onclick='on("editPerfil")' class="btn w3-btn w3-white" style="width:100%;height:auto%;vertical-align: middle;">
                                                             <img src="/static/editUser.png" style="width:100%;height:auto%;">
                                                         </button>
                                                     </div>
@@ -1738,6 +1902,88 @@ async def root():
                     nickname= chatMongo[str(me.id)]['nickname'],
                     meId = me.id
                 )
+                tokensRes = ''''''
+                if 'tokens' in chatMongo :
+                    filterTokens = [d for d in chatMongo['tokens'] if str(d['owner']) == str(me.id)]
+                    tokenIndex = 0
+                    for token in filterTokens:
+                        tokensRes +='''<div id="token_index_{tokenIndex}" ondrop="drop(event)" ondragover="allowDrop(event)" style="border: 3px solid black;min-height:40px;"> 
+                            <img  id="token_index_{tokenIndex}_photo" src={path} style="display:block; margin:auto; max-width: 100%;max-height: 100%;vertical-align: middle;" draggable="true" ondragstart="drag(event)" alt="No se ha podido cargar la imagen"/>
+                            </div>'''.format(path=token['path'], tokenIndex = tokenIndex)
+                        tokenIndex = tokenIndex + 1
+                buttonsMaster=""
+                if chatMongo['master'] == me.id:
+                    buttonsMaster = '''<div class="grid-container-submenu-sender" style="height:100%">
+                            <div class="btnSubMenu1" style="width:100%;height:100%;">
+                                <label for="token-file-upload">
+                                    <p class="w3-white">Crear token</p>
+                                </label>
+                                <input id="token-file-upload" onchange="createMasterToken({id},this)" type="file" style="display:none;"></input>
+                            </div>
+                            <div class="btnSubMenu2" style="width:100%;height:100%;">
+                                <input id="color-new-token" type="color"></input>
+                            </div>
+                            <div class="btnSubMenu3" style="width:100%;height:100%;">
+                                <label for="map-file-upload">
+                                    <p class="w3-white">Crear mapa</p>
+                                </label>
+                                <input id="map-file-upload" onchange="createMasterMap({id},this)" type="file" style="display:none;"></input>
+                            </div>
+                        </div>'''.format( id = form['id'])
+                x = 5
+                y = 5
+                if x in chatMongo:
+                    x = chatMongo['x']
+                if y in chatMongo:
+                    y = chatMongo['y']
+                divs = ''' <div id='grid-parent-matrix' style="width:100%;height:100%;display:grid;grid-template-rows: repeat({y}, 1fr); grid-template-columns: repeat({x}, 1fr);" >'''.format(x=x, y=y)
+                for i in range(x):
+                    for j in range(y):
+                        x1 = i+1
+                        y1 = j+1
+                        x2 = i+2
+                        y2 = j+2
+                        divs = divs + '''<div  ondrop="drop(event)" ondragover="allowDrop(event)" id="grid-son-matrix-{x}-{y}" style="display: flex;align-items:center;justify-content:center;width:100%; height:100%; vertical-align: middle;border:2px solid black; grid-column: {x1} /{x2}; grid-row: {y1} / {y2};"></div>'''.format(x= i,y= j, x1= x1, y1 = y1,x2= x2, y2 = y2)
+                divs = divs+"</div>"
+                principal = ''
+                maps= ''''''
+                if 'maps' in chatMongo and me.id == chatMongo['master']:
+                    for m in chatMongo['maps']:
+                        maps = maps + '''<img onclick="changeBG('{path}',{id})" src={path} style="max-width:100%; max-height:100%">'''.format(path = m['path'], id= form['id'])
+                        if m['selected']:
+                            principal = m['path']
+                photosChat = '''<div class="grid-container-col3" style="padding:5px;">
+                    <div class="grid-item" style="padding:2px; border: 3px solid black; postion:relative;" >
+                        <div style="width:100%;height:100%;position:relative;transform-style: preserve-3d; background-size:100% 100%;background-image: url({imgPrincipal});">
+                            {mallado}
+                        </div>
+                    </div>
+                    <div class="grid-item" style="padding:5px; border: 3px solid black; overflow-y: scroll;" >
+                        <label for="xPrincipalMap">x:</label>
+                        <input type="number" min="0" oninput="validity.valid||(value='0');" max="999"  name="xPrincipalMap" id="xPrincipalMap" maxlength="3"  value="{xPrincipal}"/>
+                        <label for="yPrincipalMap">y:</label>
+                        <input type="number" min="0" oninput="validity.valid||(value='0');" max="999"  name="yPrincipalMap" id="yPrincipalMap" maxlength="3"  value="{yPrincipal}"/>
+                        <button onclick="changeGrid({id})">CAMBIAR</button>
+                        <br>
+                        {tokens}
+                    </div>
+                    <div class="grid-item" style="padding:5px; overflow-x:scroll;">
+                        {maps}
+                    </div>
+                    <div class="grid-item" style="padding:5px;">
+                        {buttonsMasters}
+                    </div>
+                </div>'''.format(
+                    imgPrincipal=principal,
+                    tokens = tokensRes,
+                    mallado = divs,
+                    maps = maps,
+                    xPrincipal = x,
+                    yPrincipal = y,
+                    buttonsMasters = "buttonsMaster",
+                    id = form['id']
+                )
+            
             elif form['post_method'] == 'crear_grupo':
                 f = form.to_dict()
                 res = [val for key, val in form.to_dict().items()
@@ -1814,7 +2060,7 @@ async def root():
                     notifications=dialog.unread_count,
                     style= dia
                 )
-        return await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name,  messages=messages, name='@'+me.username, chats=ch))
+        return await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name,  messages=messages, photosChat= photosChat,  name='@'+me.username, chats=ch))
 
     # Ask for the phone if we don't know it yet
     if arrayClients[ip+'telf'] is None:
@@ -1836,12 +2082,13 @@ def createDefaultProfilePhoto (color, id, chatId):
 
 def get_mongoDoc():
     client = MongoClient(
-        "mongodb+srv://Telerol:MONOPOLy3@teleroldb-jvhhg.mongodb.net/test?retryWrites=true&w=majority")["Telerol"]["chats"]
+        "mongodb+srv://Telerol:MONOPOLy3@teleroldb.jvhhg.mongodb.net/TelerolDB?retryWrites=true&w=majority")["Telerol"]["chats"]
     return client
 
 async def main():
     if modoONLINE == True:
         # web: telerol.ddns.net
+        # source :
         config = Config()
         config.bind = ["192.168.1.39:5000"]
         await hypercorn.asyncio.serve(app, config)

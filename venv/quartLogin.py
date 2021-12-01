@@ -651,6 +651,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
                     axios.post('/updater',{idChat, maxId})
                         .then(function (response) {
                             let res = response.data
+                            console.log("resUpdater", res,idChat,maxId)
                             res['mongoDoc']['users'].forEach(user=>{
                                 let divsUser = document.getElementsByName('mes_from_'+String(user))
                                 let nicknameUser = document.getElementsByName('mes_from_'+String(user)+'_nickname')
@@ -851,7 +852,7 @@ BASE_TEMPLATE = '''<!DOCTYPE html>
 
                 }
             }
-            }, 4000);
+            }, 10000);
         </script>
         <script type="text/javascript">
             let recorder = null;
@@ -1148,8 +1149,8 @@ MENU_FORM = '''
                         <div class="grid-container-half vcentrable">
                             <span class="grid-item vcentered">
                                 <p style="font-size:14px;width:80%;float:left;">{name}</p>
-                                <button class="btn" style="float:left;" onclick="on('overlay')">
-                                    <img src="https://image.flaticon.com/icons/svg/747/747376.svg" style="height:16px; width:16px;" alt="Error"/>
+                                <button class="btn" style="float:left;" onclick="on('overlay')"> 
+                                    <img src="https://img.icons8.com/material-outlined/24/000000/user--v1.png" style="height:16px; width:16px;" alt="Error"/>
                                 </button>
                             </span>
                             <span class="grid-item vcentered">
@@ -1222,6 +1223,8 @@ async def cleanup():
 
 @app.route('/updater', methods=['POST'])
 async def updater():
+
+    
     data = await request.json
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1324,10 +1327,13 @@ async def updater():
                 'not': str(dialog.unread_count),
                 'display':dia
                 })
-    return jsonify(res)
+    print("UPDATER...",res['maxId'])
+    return (res)
 
 @app.route('/sendDiceMessage', methods=['POST'])
 async def sendDiceMessage():
+
+    print("ENVIANDO TIRADA...")
     data = await request.json
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1340,6 +1346,7 @@ async def sendDiceMessage():
 
 @app.route('/changeBGSelected', methods=['POST'])
 async def changeBGSelected():
+    print("CAMBIANDO BG...")
     data = await request.json
     idChat = int(data['idChat'])
     mongo = get_mongoDoc()
@@ -1355,6 +1362,7 @@ async def changeBGSelected():
 
 @app.route('/createToken', methods=['POST'])
 async def createTokenNormal():
+    print("CREANDO TOKEN...")
     data = await request.json 
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1429,7 +1437,8 @@ async def createTokenNormal():
     return {'codigo':'200'}
 
 @app.route('/editProfile', methods=['POST'])
-async def editProfile():
+async def editProfile(): 
+    print("EDITANDO PERFIL...")
     data = await request.json 
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1464,6 +1473,7 @@ async def editProfile():
     
 @app.route('/sendImage', methods=['POST'])
 async def sendImage():
+    print("ENVIANDO IMAGEN...")
     data = await request.json 
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1487,6 +1497,8 @@ async def sendImage():
 
 @app.route('/createMasterToken', methods=['POST'])
 async def createMasterToken():
+
+    print("CREANDO TOKEN...")
     data = await request.json 
     color = data['color']
     ip = request.remote_addr
@@ -1532,6 +1544,7 @@ async def createMasterToken():
 
 @app.route('/createMasterMap', methods=['POST'])
 async def createMasterMap():
+    print("CREANDO MAPA...")
     data = await request.json 
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1566,6 +1579,7 @@ async def createMasterMap():
 
 @app.route('/sendAudio', methods=['POST'])
 async def sendAudio():
+    print("ENVIANDO AUDIO...")
     data = await request.json 
     ip = request.remote_addr
     ip = ip.replace('.', '_')
@@ -1615,6 +1629,7 @@ async def root():
     if await arrayClients[ip].is_user_authorized():
         me = await arrayClients[ip].get_me()
         ch = ''
+        print("ACTUALIZANDO ROOT...")
         mongo = get_mongoDoc()
         photosChat=''''''
         amigos = ''''''
@@ -2060,6 +2075,7 @@ async def root():
                     notifications=dialog.unread_count,
                     style= dia
                 )
+                #print("sql template",await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name,  messages=messages, photosChat= photosChat,  name='@'+me.username, chats=ch)))
         return await render_template_string(BASE_TEMPLATE, friends=amigos, content=MENU_FORM.format(nickname=me.first_name,  messages=messages, photosChat= photosChat,  name='@'+me.username, chats=ch))
 
     # Ask for the phone if we don't know it yet
